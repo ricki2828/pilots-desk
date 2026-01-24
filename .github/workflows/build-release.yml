@@ -70,8 +70,17 @@ jobs:
           }
         shell: pwsh
 
+      - name: Test Cargo build
+        run: |
+          cd src-tauri
+          cargo build --release --verbose
+        shell: bash
+        continue-on-error: true
+
       - name: Build Tauri app
-        run: npm run tauri build
+        run: npm run tauri build --verbose
+        env:
+          RUST_BACKTRACE: "1"
 
       - name: List build outputs (for debugging)
         run: |
