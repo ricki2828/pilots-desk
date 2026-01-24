@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "--app-name",
+  "productName": "Pilot's Desk",
   "version": "0.1.0",
-  "identifier": "com.ricki28.--app-name",
+  "identifier": "com.cosauce.pilotsdesk",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,9 +12,13 @@
   "app": {
     "windows": [
       {
-        "title": "--app-name",
-        "width": 800,
-        "height": 600
+        "title": "Pilot's Desk - Sales Assistant",
+        "width": 1600,
+        "height": 900,
+        "resizable": true,
+        "fullscreen": false,
+        "minWidth": 1280,
+        "minHeight": 720
       }
     ],
     "security": {
@@ -30,6 +34,24 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "resources": ["../models/*", "sidecars/*.dll"],
+    "externalBin": ["sidecars/whisper"],
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "",
+      "wix": {
+        "language": "en-US"
+      },
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      }
+    },
+    "publisher": "CoSauce",
+    "copyright": "Copyright © 2026 CoSauce",
+    "category": "Productivity",
+    "shortDescription": "Voice-responsive sales assistance for BPO agents",
+    "longDescription": "Pilot's Desk provides real-time script guidance, live coaching, and compliance monitoring for sales agents. Features voice-triggered navigation, interactive widgets, and local transcription for privacy."
   }
 }

@@ -1,0 +1,146 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggers on version tags like v0.1.0, v1.0.0, etc.
+
+jobs:
+  build-windows:
+    name: Build Windows Installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Download Whisper model
+        run: |
+          mkdir -p models
+          curl -L -o models/ggml-small.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin
+        shell: bash
+
+      - name: Verify model downloaded
+        run: |
+          if (Test-Path models/ggml-small.bin) {
+            $size = (Get-Item models/ggml-small.bin).Length / 1MB
+            Write-Host "Model downloaded successfully: $size MB"
+          } else {
+            Write-Error "Model download failed"
+            exit 1
+          }
+        shell: pwsh
+
+      - name: Build Tauri app
+        run: npm run tauri build
+
+      - name: List build outputs (for debugging)
+        run: |
+          dir src-tauri\target\release\bundle\
+          dir src-tauri\target\release\bundle\msi\
+        shell: cmd
+
+      - name: Upload MSI installer as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pilots-desk-windows-installer
+          path: src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: error
+
+      - name: Upload portable exe as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pilots-desk-windows-portable
+          path: src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: warn
+
+  create-release:
+    name: Create GitHub Release
+    needs: build-windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Windows installer
+        uses: actions/download-artifact@v4
+        with:
+          name: pilots-desk-windows-installer
+          path: ./release-artifacts
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Pilot's Desk v${{ steps.get_version.outputs.VERSION }}
+          body: |
+            ## Pilot's Desk v${{ steps.get_version.outputs.VERSION }}
+
+            **Voice-responsive sales assistance for BPO agents**
+
+            ### What's Included
+
+            - ✅ Real-time voice transcription (Whisper.cpp)
+            - ✅ Script navigation with live coaching
+            - ✅ Compliance monitoring and warnings
+            - ✅ Interactive widgets (Sky TV package calculator)
+            - ✅ Local transcription for privacy (no audio sent to cloud)
+
+            ### Installation (Windows 10/11)
+
+            1. **Download** `Pilots.Desk_${{ steps.get_version.outputs.VERSION }}_x64_en-US.msi` below
+            2. **Double-click** to install
+            3. **Launch** from Start Menu
+            4. **Grant** microphone permission when prompted
+
+            **Zero configuration required** - Whisper model and dependencies bundled.
+
+            ### System Requirements
+
+            - Windows 10/11 (64-bit)
+            - 1 GB free disk space
+            - Microphone access
+
+            ### For BPO Admins
+
+            - Installer size: ~475 MB (includes Whisper small model)
+            - Silent install: `msiexec /i "Pilots.Desk_${{ steps.get_version.outputs.VERSION }}_x64_en-US.msi" /quiet`
+            - Network deployment compatible
+
+            ---
+
+            **Backend API**: http://91.98.79.241:8007
+            **Dashboard**: http://91.98.79.241:3000
+
+            Built with ❤️ for CoSauce | Sky TV NZ MVP
+          files: |
+            release-artifacts/*.msi
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

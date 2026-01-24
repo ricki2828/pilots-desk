@@ -1,0 +1,65 @@
+name: Build Test (Manual)
+
+on:
+  workflow_dispatch: # Allows manual triggering from GitHub Actions tab
+
+jobs:
+  build-windows:
+    name: Build Windows Installer (Test)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Download Whisper model
+        run: |
+          mkdir -p models
+          curl -L -o models/ggml-small.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin
+        shell: bash
+
+      - name: Verify model downloaded
+        run: |
+          if (Test-Path models/ggml-small.bin) {
+            $size = (Get-Item models/ggml-small.bin).Length / 1MB
+            Write-Host "Model downloaded successfully: $size MB"
+          } else {
+            Write-Error "Model download failed"
+            exit 1
+          }
+        shell: pwsh
+
+      - name: Build Tauri app
+        run: npm run tauri build
+
+      - name: List build outputs
+        run: |
+          echo "Build completed successfully!"
+          dir src-tauri\target\release\bundle\msi\
+        shell: cmd
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pilots-desk-test-build
+          path: src-tauri/target/release/bundle/msi/*.msi
+          retention-days: 7

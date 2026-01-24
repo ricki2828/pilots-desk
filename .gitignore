@@ -31,9 +31,8 @@ Thumbs.db
 .env
 .env.local
 
-# Whisper models
-*.bin
-models/
+# Whisper models (downloaded during build by GitHub Actions)
+models/*.bin
 
 # SQLite
 *.db
