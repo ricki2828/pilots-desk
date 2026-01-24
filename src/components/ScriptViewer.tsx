@@ -1,0 +1,456 @@
+import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import PackageCalculator from "./PackageCalculator";
+import NudgeDisplay from "./NudgeDisplay";
+import ComplianceWarning from "./ComplianceWarning";
+import ScoreDisplay from "./ScoreDisplay";
+import { useScoring } from "../hooks/useScoring";
+
+interface ScriptNode {
+  id: string;
+  type: string;
+  config: {
+    text?: string;
+    keywords?: string[];
+    wait_for_response?: boolean;
+    display_notes?: string;
+    widget?: string;
+    auto_trigger?: {
+      listen_for: string[];
+      action: string;
+    };
+    verbatim_match?: number;
+    on_skip?: string;
+    alert_message?: string;
+    action?: string;
+    disposition?: string;
+  };
+  transitions: Array<{
+    trigger_type: string;
+    value?: string | string[];
+    next_node: string;
+    confidence_threshold?: number;
+  }>;
+}
+
+interface Transcript {
+  text: string;
+  confidence: number;
+  timestamp: number;
+  is_final: boolean;
+}
+
+interface WidgetConfig {
+  type: string;
+  config: {
+    packages?: Array<{
+      id: string;
+      name: string;
+      price: number;
+    }>;
+  };
+}
+
+export default function ScriptViewer() {
+  const [scriptLoaded, setScriptLoaded] = useState(false);
+  const [currentNode, setCurrentNode] = useState<ScriptNode | null>(null);
+  const [allNodes, setAllNodes] = useState<ScriptNode[]>([]);
+  const [scriptName, setScriptName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [widgetConfig, setWidgetConfig] = useState<WidgetConfig | null>(null);
+  const [previousTranscript, setPreviousTranscript] = useState<string>("");
+  const [scoringEnabled, setScoringEnabled] = useState(false);
+
+  // Scoring integration (will connect to backend)
+  const agentId = "agent_demo_001"; // TODO: Get from authentication
+  const scoring = useScoring(agentId, scoringEnabled);
+
+  // Load script on mount
+  useEffect(() => {
+    const loadScript = async () => {
+      try {
+        const scriptPath = "/home/ricki28/pilots-desk/scripts/sky_tv_nz/main_pitch.json";
+        const result = await invoke<string>("load_script", { scriptPath });
+        setScriptName(result);
+        setScriptLoaded(true);
+        setError(null);
+
+        // Get all nodes for reference
+        const nodes = await invoke<ScriptNode[]>("get_all_nodes");
+        setAllNodes(nodes);
+
+        // Get current node
+        const current = await invoke<ScriptNode | null>("get_current_node");
+        setCurrentNode(current);
+      } catch (err) {
+        setError(String(err));
+        console.error("Failed to load script:", err);
+      }
+    };
+
+    loadScript();
+  }, []);
+
+  // Load widget when current node changes
+  useEffect(() => {
+    const loadWidget = async () => {
+      if (!currentNode || !currentNode.config.widget) {
+        setWidgetConfig(null);
+        return;
+      }
+
+      try {
+        const widget = await invoke<WidgetConfig>("get_widget", {
+          widgetId: currentNode.config.widget,
+        });
+        setWidgetConfig(widget);
+      } catch (err) {
+        console.error("Failed to load widget:", err);
+        setWidgetConfig(null);
+      }
+    };
+
+    loadWidget();
+  }, [currentNode]);
+
+  // Listen for transcript events and process them
+  useEffect(() => {
+    const unlisten = listen<Transcript>("transcript", async (event) => {
+      if (!scriptLoaded) return;
+
+      const newTranscript = event.payload.text;
+
+      try {
+        // Accumulate transcript for current node
+        const fullTranscript = previousTranscript + " " + newTranscript;
+        setPreviousTranscript(fullTranscript);
+
+        // Process transcript through script engine
+        const navigatedTo = await invoke<string | null>(
+          "process_script_transcript",
+          { transcript: newTranscript }
+        );
+
+        if (navigatedTo) {
+          console.log("Auto-navigated to:", navigatedTo);
+
+          // Score the previous node before navigation (if scoring enabled)
+          if (scoringEnabled && currentNode && previousTranscript.trim()) {
+            await scoring.scoreSegment(
+              `segment_${currentNode.id}_${Date.now()}`,
+              currentNode.id,
+              currentNode.config.text || "",
+              previousTranscript
+            );
+          }
+
+          // Clear transcript accumulator for new node
+          setPreviousTranscript("");
+
+          // Refresh current node
+          const current = await invoke<ScriptNode | null>("get_current_node");
+          setCurrentNode(current);
+        }
+
+        // Check for auto-trigger keywords in widget
+        if (currentNode?.config.auto_trigger && widgetConfig) {
+          const transcript_lower = newTranscript.toLowerCase();
+          for (const keyword of currentNode.config.auto_trigger.listen_for) {
+            if (transcript_lower.includes(keyword.toLowerCase())) {
+              console.log("Auto-trigger detected:", keyword);
+              // Trigger action based on auto_trigger.action
+              // For now, enable the package (hardcoded to "sport" for rugby example)
+              if (currentNode.config.auto_trigger.action === "enable_sport_package") {
+                (window as any).enablePackage?.("sport");
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to process transcript:", err);
+      }
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [scriptLoaded, currentNode, widgetConfig, scoringEnabled, previousTranscript]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyPress = async (e: KeyboardEvent) => {
+      if (!currentNode || !scriptLoaded) return;
+
+      // Arrow keys for navigation through transitions
+      if (e.key === "ArrowDown" && currentNode.transitions.length > 0) {
+        try {
+          const nextNodeId = currentNode.transitions[0].next_node;
+          await invoke("navigate_to_node", { nodeId: nextNodeId });
+          const current = await invoke<ScriptNode | null>("get_current_node");
+          setCurrentNode(current);
+        } catch (err) {
+          console.error("Navigation failed:", err);
+        }
+      } else if (e.key === "ArrowUp") {
+        try {
+          await invoke("navigate_back");
+          const current = await invoke<ScriptNode | null>("get_current_node");
+          setCurrentNode(current);
+        } catch (err) {
+          console.error("Navigate back failed:", err);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyPress);
+    return () => window.removeEventListener("keydown", handleKeyPress);
+  }, [currentNode, scriptLoaded]);
+
+  // Manual navigation to specific node
+  const navigateToNode = async (nodeId: string) => {
+    try {
+      await invoke("navigate_to_node", { nodeId });
+      const current = await invoke<ScriptNode | null>("get_current_node");
+      setCurrentNode(current);
+    } catch (err) {
+      console.error("Navigation failed:", err);
+    }
+  };
+
+  // Reset script to beginning
+  const resetScript = async () => {
+    try {
+      await invoke("reset_script");
+      const current = await invoke<ScriptNode | null>("get_current_node");
+      setCurrentNode(current);
+    } catch (err) {
+      console.error("Reset failed:", err);
+    }
+  };
+
+  // Get next possible nodes
+  const getNextNodes = (): ScriptNode[] => {
+    if (!currentNode) return [];
+    return currentNode.transitions
+      .map((t) => allNodes.find((n) => n.id === t.next_node))
+      .filter((n): n is ScriptNode => n !== undefined);
+  };
+
+  // Get node type badge color
+  const getNodeTypeColor = (type: string): string => {
+    switch (type) {
+      case "SCRIPT":
+        return "bg-blue-100 text-blue-800";
+      case "BRANCH":
+        return "bg-yellow-100 text-yellow-800";
+      case "WIDGET":
+        return "bg-purple-100 text-purple-800";
+      case "COMPLIANCE":
+        return "bg-red-100 text-red-800";
+      case "SCRIPT_AND_WIDGET":
+        return "bg-indigo-100 text-indigo-800";
+      case "ACTION":
+        return "bg-green-100 text-green-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  if (error) {
+    return (
+      <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
+        <h3 className="text-lg font-semibold text-red-800 mb-2">Script Load Error</h3>
+        <p className="text-red-600">{error}</p>
+      </div>
+    );
+  }
+
+  if (!scriptLoaded || !currentNode) {
+    return (
+      <div className="p-6 text-center">
+        <div className="animate-pulse">
+          <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+        </div>
+        <p className="mt-4 text-gray-600">Loading script...</p>
+      </div>
+    );
+  }
+
+  const nextNodes = getNextNodes();
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Script Header */}
+      <div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white p-4 shadow-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold">{scriptName}</h2>
+            <p className="text-primary-100 text-sm">Node: {currentNode.id}</p>
+          </div>
+          <button
+            onClick={resetScript}
+            className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded text-sm transition-colors"
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+
+      {/* Current Node */}
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getNodeTypeColor(currentNode.type)}`}>
+              {currentNode.type}
+            </span>
+            {currentNode.config.verbatim_match && (
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">
+                COMPLIANCE: {(currentNode.config.verbatim_match * 100).toFixed(0)}% Match Required
+              </span>
+            )}
+          </div>
+
+          {currentNode.config.text && (
+            <div className="bg-white border-2 border-primary-200 rounded-lg p-6 shadow-sm">
+              <p className="text-lg leading-relaxed text-gray-800 whitespace-pre-wrap">
+                {currentNode.config.text}
+              </p>
+            </div>
+          )}
+
+          {currentNode.config.display_notes && (
+            <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded p-3">
+              <p className="text-sm text-yellow-800">
+                <strong>Notes:</strong> {currentNode.config.display_notes}
+              </p>
+            </div>
+          )}
+
+          {currentNode.config.keywords && currentNode.config.keywords.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs text-gray-500 mb-2">Listening for keywords:</p>
+              <div className="flex flex-wrap gap-2">
+                {currentNode.config.keywords.map((keyword, idx) => (
+                  <span
+                    key={idx}
+                    className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs"
+                  >
+                    {keyword}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Widget Display */}
+          {widgetConfig && widgetConfig.type === "SKY_TV_PACKAGES" && (
+            <div className="mt-6">
+              <PackageCalculator
+                packages={widgetConfig.config.packages || []}
+                onSelectionChange={(selectedIds, total) => {
+                  console.log("Package selection changed:", selectedIds, total);
+                }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Next Possible Nodes (Dimmed Preview) */}
+        {nextNodes.length > 0 && (
+          <div className="mt-8">
+            <h3 className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wide">
+              Next Steps ({nextNodes.length})
+            </h3>
+            <div className="space-y-3">
+              {nextNodes.map((node, idx) => (
+                <button
+                  key={node.id}
+                  onClick={() => navigateToNode(node.id)}
+                  className="w-full text-left bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg p-4 opacity-60 hover:opacity-100 transition-all"
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getNodeTypeColor(node.type)}`}>
+                      {node.type}
+                    </span>
+                    <span className="text-xs text-gray-500">{node.id}</span>
+                  </div>
+                  {node.config.text && (
+                    <p className="text-sm text-gray-600 line-clamp-2">
+                      {node.config.text.substring(0, 150)}...
+                    </p>
+                  )}
+                  {/* Show trigger info */}
+                  {currentNode.transitions[idx] && (
+                    <div className="mt-2 text-xs text-gray-400">
+                      Trigger: {currentNode.transitions[idx].trigger_type}
+                      {currentNode.transitions[idx].value && (
+                        <span className="ml-2">
+                          (
+                          {Array.isArray(currentNode.transitions[idx].value)
+                            ? (currentNode.transitions[idx].value as string[]).join(", ")
+                            : currentNode.transitions[idx].value}
+                          )
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Keyboard Hints */}
+      <div className="bg-gray-50 border-t border-gray-200 p-3">
+        <div className="flex items-center justify-between text-xs text-gray-600">
+          <div className="flex items-center gap-6">
+            <span><kbd className="px-2 py-1 bg-white border rounded">↓</kbd> Next</span>
+            <span><kbd className="px-2 py-1 bg-white border rounded">↑</kbd> Back</span>
+            <span>Click card to jump</span>
+          </div>
+          <button
+            onClick={() => setScoringEnabled(!scoringEnabled)}
+            className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
+              scoringEnabled
+                ? "bg-green-100 text-green-700 border border-green-300"
+                : "bg-gray-200 text-gray-600 border border-gray-300"
+            }`}
+          >
+            {scoringEnabled ? "✓ Scoring ON" : "Scoring OFF"}
+          </button>
+        </div>
+      </div>
+
+      {/* Nudges Display (floating) */}
+      <NudgeDisplay
+        nudges={scoring.latestNudges}
+        onDismiss={scoring.clearNudge}
+        maxVisible={3}
+      />
+
+      {/* Compliance Warning (modal) */}
+      <ComplianceWarning
+        compliance={scoring.latestCompliance}
+        nodeId={currentNode.id}
+        onAcknowledge={() => {
+          // Clear compliance warning after acknowledgment
+          console.log("Compliance acknowledged");
+        }}
+      />
+
+      {/* Score Display (inline) - show latest score */}
+      {scoring.latestScore && (
+        <div className="absolute bottom-20 right-6 w-80">
+          <ScoreDisplay
+            score={scoring.latestScore.adherence}
+            nodeId={scoring.latestScore.segment_id}
+            showDetails={true}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
