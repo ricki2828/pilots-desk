@@ -38,8 +38,20 @@ jobs:
           cat package.json | grep -A 5 devDependencies
         shell: bash
 
+      - name: Clean all caches
+        run: |
+          rm -rf node_modules .vite dist
+          echo "Cleaned node_modules, .vite, and dist directories"
+        shell: bash
+
       - name: Install dependencies
         run: npm ci
+
+      - name: Verify installation
+        run: |
+          echo "=== Installed packages ==="
+          npm list tailwindcss autoprefixer postcss
+        shell: bash
 
       - name: Download Whisper model
         run: |
