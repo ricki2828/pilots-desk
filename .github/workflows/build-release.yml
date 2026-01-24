@@ -61,9 +61,21 @@ jobs:
         continue-on-error: true
 
       - name: Build Tauri app
-        run: npm run tauri build --verbose
+        id: tauri_build
+        run: npm run tauri build --verbose 2>&1 | tee build-output.log
+        shell: bash
         env:
           RUST_BACKTRACE: "1"
+
+      - name: Show build errors on failure
+        if: failure() && steps.tauri_build.outcome == 'failure'
+        run: |
+          echo "=== Last 100 lines of build output ==="
+          tail -100 build-output.log || cat build-output.log
+          echo ""
+          echo "=== Checking for Tauri bundler errors ==="
+          ls -la src-tauri/target/release/bundle/ || echo "Bundle directory not created"
+        shell: bash
 
       - name: List build outputs (for debugging)
         run: |
