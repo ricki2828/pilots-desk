@@ -35,10 +35,6 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [
-      "sidecars/whisper-deps"
-    ],
-    "externalBin": ["sidecars/whisper"],
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
