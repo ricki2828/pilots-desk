@@ -36,11 +36,7 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "sidecars/ggml.dll",
-      "sidecars/ggml-base.dll",
-      "sidecars/ggml-cpu.dll",
-      "sidecars/whisper.dll",
-      "sidecars/SDL2.dll"
+      "sidecars/whisper-deps"
     ],
     "externalBin": ["sidecars/whisper"],
     "windows": {
