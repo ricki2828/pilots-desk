@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import ScriptViewer from "./components/ScriptViewer";
+import AudioSettings from "./components/AudioSettings";
 
 interface AudioLevels {
   mic_level: number;
@@ -29,6 +30,7 @@ function App() {
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
   const [_status, setStatus] = useState<string>("Not initialized");
   const [error, setError] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Initialize audio and whisper on mount
   useEffect(() => {
@@ -200,13 +202,21 @@ function App() {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-6 py-8 max-w-[1920px]">
         {/* Header */}
-        <div className="mb-8 animate-popIn">
-          <h1 className="text-5xl font-heading font-bold mb-2 text-foreground">
-            Pilot's Desk 🎯
-          </h1>
-          <p className="text-mutedForeground font-body text-lg">
-            Phase 2: Script Navigation + Voice Guidance
-          </p>
+        <div className="mb-8 animate-popIn flex items-center justify-between">
+          <div>
+            <h1 className="text-5xl font-heading font-bold mb-2 text-foreground">
+              Pilot's Desk 🎯
+            </h1>
+            <p className="text-mutedForeground font-body text-lg">
+              Phase 2: Script Navigation + Voice Guidance
+            </p>
+          </div>
+          <button
+            onClick={() => setShowSettings(true)}
+            className="px-6 py-3 bg-muted border-2 border-foreground rounded-sm font-heading font-bold shadow-pop hover:shadow-pop-hover active:shadow-pop-active transition-all hover:-translate-y-0.5 active:translate-y-0"
+          >
+            ⚙️ Settings
+          </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-10 gap-8 h-[calc(100vh-12rem)]">
@@ -256,38 +266,81 @@ function App() {
               )}
             </div>
 
-            {/* Audio Levels */}
-            <div className="card shadow-pop-soft">
-              <h3 className="text-xl font-heading font-bold mb-4 text-foreground">Audio Levels</h3>
+            {/* Audio Levels - PROMINENT */}
+            <div className={`card ${isCapturing ? 'shadow-pop-purple border-accent' : 'shadow-pop-soft'} transition-all`}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-heading font-bold text-foreground">Audio Levels</h3>
+                {isCapturing && (
+                  <span className="px-3 py-1 bg-quaternary border-2 border-foreground rounded-sm text-xs font-heading font-bold animate-pulse">
+                    🎤 RECORDING
+                  </span>
+                )}
+              </div>
 
-              <div className="space-y-4">
-                {/* Microphone Level */}
+              {!isCapturing && (
+                <div className="bg-tertiary/20 border-2 border-tertiary rounded-sm p-4 mb-4">
+                  <p className="text-sm font-body text-foreground text-center">
+                    <strong className="font-bold">Click "Start Capture"</strong> to begin recording audio
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-6">
+                {/* Microphone Level - BIG */}
                 <div>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-foreground font-body font-semibold text-sm">Mic</span>
-                    <span className="text-mutedForeground font-mono text-sm font-bold">
+                  <div className="flex justify-between mb-3">
+                    <span className="text-foreground font-heading font-bold text-lg">🎤 Microphone</span>
+                    <span className={`font-mono text-2xl font-bold ${
+                      audioLevels.mic_level > 0.1 ? 'text-foreground' : 'text-mutedForeground'
+                    }`}>
                       {(audioLevels.mic_level * 100).toFixed(0)}%
                     </span>
                   </div>
-                  <div className="w-full bg-muted border-2 border-foreground rounded-sm h-3 overflow-hidden">
+                  <div className="w-full bg-muted border-2 border-foreground rounded-sm h-8 overflow-hidden relative">
                     <div
                       className={`h-full transition-all duration-75 ${getLevelColor(
                         audioLevels.mic_level
                       )}`}
                       style={{ width: getLevelWidth(audioLevels.mic_level) }}
                     />
+                    {/* Visual notches for reference */}
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-1/4 h-full border-r border-foreground/20"></div>
+                      <div className="w-1/4 h-full border-r border-foreground/20"></div>
+                      <div className="w-1/4 h-full border-r border-foreground/20"></div>
+                    </div>
                   </div>
+                  {audioLevels.mic_level === 0 && isCapturing && (
+                    <p className="text-xs text-secondary font-body font-semibold mt-2">
+                      ⚠️ No microphone input detected - check permissions!
+                    </p>
+                  )}
+                  {audioLevels.mic_level > 0 && audioLevels.mic_level < 0.1 && isCapturing && (
+                    <p className="text-xs text-tertiary font-body font-semibold mt-2">
+                      🔉 Speak louder or move closer to microphone
+                    </p>
+                  )}
+                  {audioLevels.mic_level >= 0.1 && audioLevels.mic_level < 0.7 && isCapturing && (
+                    <p className="text-xs text-quaternary font-body font-semibold mt-2">
+                      ✓ Good level - keep speaking like this!
+                    </p>
+                  )}
+                  {audioLevels.mic_level >= 0.7 && isCapturing && (
+                    <p className="text-xs text-secondary font-body font-semibold mt-2">
+                      🔊 Too loud - move back or reduce gain
+                    </p>
+                  )}
                 </div>
 
                 {/* Combined Level */}
                 <div>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-foreground font-body font-bold text-sm">Combined</span>
-                    <span className="text-mutedForeground font-mono text-sm font-bold">
+                  <div className="flex justify-between mb-3">
+                    <span className="text-foreground font-body font-bold text-base">📊 Combined Signal</span>
+                    <span className="text-mutedForeground font-mono text-lg font-bold">
                       {(audioLevels.combined_level * 100).toFixed(0)}%
                     </span>
                   </div>
-                  <div className="w-full bg-muted border-2 border-foreground rounded-sm h-4 overflow-hidden">
+                  <div className="w-full bg-muted border-2 border-foreground rounded-sm h-6 overflow-hidden">
                     <div
                       className={`h-full transition-all duration-75 ${getLevelColor(
                         audioLevels.combined_level
@@ -429,6 +482,12 @@ function App() {
             </div>
           </div>
         </div>
+
+        {/* Audio Settings Modal */}
+        <AudioSettings
+          isOpen={showSettings}
+          onClose={() => setShowSettings(false)}
+        />
       </div>
     </div>
   );
