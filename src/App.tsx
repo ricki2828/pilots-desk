@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import ScriptViewer from "./components/ScriptViewer";
 import AudioSettings from "./components/AudioSettings";
+import PermissionsHelper from "./components/PermissionsHelper";
 
 interface AudioLevels {
   mic_level: number;
@@ -31,6 +32,7 @@ function App() {
   const [_status, setStatus] = useState<string>("Not initialized");
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showPermissionsHelp, setShowPermissionsHelp] = useState(false);
 
   // Initialize audio and whisper on mount
   useEffect(() => {
@@ -260,10 +262,23 @@ function App() {
               </div>
 
               {error && (
-                <div className="text-sm font-body p-3 bg-secondary/20 border-2 border-secondary rounded-sm">
+                <div className="text-sm font-body p-3 bg-secondary/20 border-2 border-secondary rounded-sm mb-3">
                   {error}
                 </div>
               )}
+
+              {/* Permissions Help Button */}
+              <button
+                onClick={() => setShowPermissionsHelp(true)}
+                className="w-full text-left bg-muted hover:bg-card border-2 border-border hover:border-foreground rounded-sm px-4 py-3 transition-all"
+              >
+                <p className="text-sm font-body font-semibold text-foreground">
+                  ❓ Need help with microphone permissions?
+                </p>
+                <p className="text-xs font-body text-mutedForeground mt-1">
+                  Click here for step-by-step instructions
+                </p>
+              </button>
             </div>
 
             {/* Audio Levels - PROMINENT */}
@@ -311,9 +326,17 @@ function App() {
                     </div>
                   </div>
                   {audioLevels.mic_level === 0 && isCapturing && (
-                    <p className="text-xs text-secondary font-body font-semibold mt-2">
-                      ⚠️ No microphone input detected - check permissions!
-                    </p>
+                    <div className="mt-3 space-y-2">
+                      <p className="text-sm text-secondary font-body font-bold">
+                        ⚠️ No microphone input detected!
+                      </p>
+                      <button
+                        onClick={() => setShowPermissionsHelp(true)}
+                        className="w-full bg-secondary text-foreground border-2 border-foreground rounded-sm px-4 py-3 font-heading font-bold shadow-pop hover:shadow-pop-hover active:shadow-pop-active transition-all hover:-translate-y-0.5 active:translate-y-0 text-sm"
+                      >
+                        🔧 Fix Microphone Permissions
+                      </button>
+                    </div>
                   )}
                   {audioLevels.mic_level > 0 && audioLevels.mic_level < 0.1 && isCapturing && (
                     <p className="text-xs text-tertiary font-body font-semibold mt-2">
@@ -487,6 +510,12 @@ function App() {
         <AudioSettings
           isOpen={showSettings}
           onClose={() => setShowSettings(false)}
+        />
+
+        {/* Permissions Helper Modal */}
+        <PermissionsHelper
+          isOpen={showPermissionsHelp}
+          onClose={() => setShowPermissionsHelp(false)}
         />
       </div>
     </div>
