@@ -78,15 +78,17 @@ jobs:
       - name: Show build errors on failure
         if: failure() && steps.tauri_build.outcome == 'failure'
         run: |
-          echo "### Build Failed - Error Details" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "```" >> $GITHUB_STEP_SUMMARY
-          tail -100 build-output.log 2>/dev/null || cat build-output.log 2>/dev/null || echo "No build output captured"
-          echo "```" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Also outputting to console:"
-          tail -100 build-output.log || cat build-output.log || echo "No build output"
+          echo "=== BUILD FAILED - ERROR OUTPUT ==="
+          cat build-output.log || echo "No build output captured"
         shell: bash
+
+      - name: Upload build error log
+        if: failure() && steps.tauri_build.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-error-log
+          path: build-output.log
+          if-no-files-found: warn
 
       - name: List build outputs (for debugging)
         run: |
