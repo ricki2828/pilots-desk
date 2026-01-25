@@ -114,15 +114,42 @@ async fn is_capturing(state: State<'_, AppState>) -> Result<bool, String> {
 
 /// Initialize Whisper engine
 #[tauri::command]
-async fn init_whisper(state: State<'_, AppState>) -> Result<String, String> {
-    let config = WhisperConfig::default();
+async fn init_whisper(
+    state: State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<String, String> {
+    // Resolve the bundled resource path for the Whisper model
+    let model_path = app_handle
+        .path()
+        .resolve("models/ggml-small.bin", tauri::path::BaseDirectory::Resource)
+        .map_err(|e| format!("Failed to resolve model path: {}", e))?
+        .to_string_lossy()
+        .to_string();
+
+    info!("Whisper model path resolved to: {}", model_path);
+
+    // Check if model exists
+    if !std::path::Path::new(&model_path).exists() {
+        return Err(format!(
+            "Whisper model not found at: {}\n\
+            The model file may not have been bundled correctly.\n\
+            Expected file size: ~466MB",
+            model_path
+        ));
+    }
+
+    let config = WhisperConfig {
+        model_path,
+        ..WhisperConfig::default()
+    };
+
     let engine = WhisperEngine::new(config);
 
     let mut whisper_guard = state.whisper_engine.lock().unwrap();
     *whisper_guard = Some(engine);
 
-    info!("Whisper engine initialized");
-    Ok("Whisper initialized (mock mode)".to_string())
+    info!("Whisper engine initialized successfully");
+    Ok("Whisper initialized successfully".to_string())
 }
 
 /// Start transcription (connects audio to whisper)

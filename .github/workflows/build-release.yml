@@ -68,6 +68,15 @@ jobs:
         shell: bash
         continue-on-error: true
 
+      - name: Download Whisper model
+        run: |
+          echo "Downloading Whisper small model..."
+          mkdir -p models
+          curl -L -o models/ggml-small.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin
+          echo "Model downloaded:"
+          ls -lh models/
+        shell: bash
+
       - name: Copy scripts for bundling
         run: |
           echo "Copying scripts directory into src-tauri for bundling..."
