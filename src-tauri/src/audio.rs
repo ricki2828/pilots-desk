@@ -1,10 +1,9 @@
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{Device, Host, SampleFormat, SampleRate, Stream, StreamConfig};
-use crossbeam_channel::{bounded, Receiver, Sender};
+use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::thread;
 
 /// Audio configuration for capture
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,12 +31,16 @@ pub struct AudioLevels {
     pub combined_level: f32,
 }
 
-/// Audio capture manager
+/// Control commands for audio thread
+enum AudioCommand {
+    Start,
+    Stop,
+}
+
+/// Audio capture manager (thread-safe)
 pub struct AudioCapture {
     config: AudioConfig,
-    mic_stream: Option<Stream>,
-    system_stream: Option<Stream>,
-    audio_sender: Option<Sender<Vec<f32>>>,
+    command_sender: Sender<AudioCommand>,
     audio_receiver: Option<Receiver<Vec<f32>>>,
     is_capturing: Arc<Mutex<bool>>,
     current_levels: Arc<Mutex<AudioLevels>>,
@@ -45,185 +48,47 @@ pub struct AudioCapture {
 
 impl AudioCapture {
     pub fn new(config: AudioConfig) -> Self {
-        let (sender, receiver) = bounded(100); // Buffer up to 100 audio chunks
+        let (cmd_sender, cmd_receiver) = unbounded::<AudioCommand>();
+        let (audio_sender, audio_receiver) = bounded(100);
+
+        let is_capturing = Arc::new(Mutex::new(false));
+        let current_levels = Arc::new(Mutex::new(AudioLevels {
+            mic_level: 0.0,
+            system_level: 0.0,
+            combined_level: 0.0,
+        }));
+
+        let config_clone = config.clone();
+        let is_capturing_clone = is_capturing.clone();
+        let levels_clone = current_levels.clone();
+
+        // Spawn audio thread that owns the Stream
+        thread::spawn(move || {
+            audio_thread(cmd_receiver, audio_sender, config_clone, is_capturing_clone, levels_clone);
+        });
 
         Self {
             config,
-            mic_stream: None,
-            system_stream: None,
-            audio_sender: Some(sender),
-            audio_receiver: Some(receiver),
-            is_capturing: Arc::new(Mutex::new(false)),
-            current_levels: Arc::new(Mutex::new(AudioLevels {
-                mic_level: 0.0,
-                system_level: 0.0,
-                combined_level: 0.0,
-            })),
+            command_sender: cmd_sender,
+            audio_receiver: Some(audio_receiver),
+            is_capturing,
+            current_levels,
         }
     }
 
-    /// Get default input device (microphone)
-    fn get_mic_device() -> Result<Device, String> {
-        let host = cpal::default_host();
-        host.default_input_device()
-            .ok_or_else(|| "No default input device found".to_string())
-    }
-
-    /// Get loopback device (system audio) - Windows WASAPI specific
-    #[cfg(target_os = "windows")]
-    fn get_loopback_device() -> Result<Device, String> {
-        let host = cpal::default_host();
-
-        // On Windows with WASAPI, we can use loopback mode
-        // This requires finding the default output device and using its loopback
-        let output_device = host.default_output_device()
-            .ok_or_else(|| "No default output device found".to_string())?;
-
-        info!("Found output device: {:?}", output_device.name());
-
-        // For WASAPI, loopback is accessed via the same device in a special mode
-        // We'll return the output device and configure it for loopback later
-        Ok(output_device)
-    }
-
-    /// Get loopback device fallback for non-Windows platforms
-    #[cfg(not(target_os = "windows"))]
-    fn get_loopback_device() -> Result<Device, String> {
-        Err("System audio loopback is only supported on Windows".to_string())
-    }
-
-    /// Calculate RMS (Root Mean Square) for audio level
-    fn calculate_rms(samples: &[f32]) -> f32 {
-        if samples.is_empty() {
-            return 0.0;
-        }
-        let sum: f32 = samples.iter().map(|s| s * s).sum();
-        (sum / samples.len() as f32).sqrt()
-    }
-
-    /// Start capturing from microphone
-    pub fn start_mic_capture(&mut self) -> Result<(), String> {
-        let device = Self::get_mic_device()?;
-        info!("Starting microphone capture from: {:?}", device.name());
-
-        let config = StreamConfig {
-            channels: self.config.channels,
-            sample_rate: SampleRate(self.config.sample_rate),
-            buffer_size: cpal::BufferSize::Fixed(self.config.buffer_size as u32),
-        };
-
-        let sender = self.audio_sender.as_ref().unwrap().clone();
-        let levels = self.current_levels.clone();
-        let is_capturing = self.is_capturing.clone();
-
-        let stream = device
-            .build_input_stream(
-                &config,
-                move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                    if *is_capturing.lock().unwrap() {
-                        // Calculate mic level
-                        let mic_level = Self::calculate_rms(data);
-
-                        // Update levels
-                        {
-                            let mut current = levels.lock().unwrap();
-                            current.mic_level = mic_level;
-                        }
-
-                        // Send to processing buffer
-                        let samples: Vec<f32> = data.to_vec();
-                        if let Err(e) = sender.try_send(samples) {
-                            warn!("Failed to send mic audio to buffer: {}", e);
-                        }
-                    }
-                },
-                move |err| {
-                    error!("Microphone stream error: {}", err);
-                },
-                None,
-            )
-            .map_err(|e| format!("Failed to build mic stream: {}", e))?;
-
-        stream.play().map_err(|e| format!("Failed to play mic stream: {}", e))?;
-        self.mic_stream = Some(stream);
-
-        info!("Microphone capture started successfully");
-        Ok(())
-    }
-
-    /// Start capturing system audio (WASAPI loopback)
-    #[cfg(target_os = "windows")]
-    pub fn start_system_capture(&mut self) -> Result<(), String> {
-        let device = Self::get_loopback_device()?;
-        info!("Starting system audio capture (loopback mode)");
-
-        // For WASAPI loopback, we need to use the output device's config
-        // but configure it for input (loopback recording)
-        let supported_config = device
-            .default_output_config()
-            .map_err(|e| format!("Failed to get default output config: {}", e))?;
-
-        info!("System audio config: {:?}", supported_config);
-
-        let config = StreamConfig {
-            channels: self.config.channels,
-            sample_rate: SampleRate(self.config.sample_rate),
-            buffer_size: cpal::BufferSize::Fixed(self.config.buffer_size as u32),
-        };
-
-        let sender = self.audio_sender.as_ref().unwrap().clone();
-        let levels = self.current_levels.clone();
-        let is_capturing = self.is_capturing.clone();
-
-        // Note: This is a simplified version. Full WASAPI loopback requires
-        // platform-specific code using windows-rs or similar
-        // For MVP, we'll implement basic version and enhance later
-
-        warn!("System audio loopback requires platform-specific WASAPI implementation");
-        warn!("Using fallback to mic-only mode for initial testing");
-
-        // TODO: Implement full WASAPI loopback using windows-rs crate
-        // For now, return Ok but don't actually capture system audio
-
-        Ok(())
-    }
-
-    /// Fallback for non-Windows platforms
-    #[cfg(not(target_os = "windows"))]
-    pub fn start_system_capture(&mut self) -> Result<(), String> {
-        warn!("System audio capture not supported on this platform");
-        Ok(())
-    }
-
-    /// Start both microphone and system audio capture
+    /// Start audio capture
     pub fn start(&mut self) -> Result<(), String> {
+        self.command_sender
+            .send(AudioCommand::Start)
+            .map_err(|e| format!("Failed to send start command: {}", e))?;
         *self.is_capturing.lock().unwrap() = true;
-
-        // Start mic capture
-        self.start_mic_capture()?;
-
-        // Attempt system capture (will warn if not fully supported yet)
-        if let Err(e) = self.start_system_capture() {
-            warn!("System audio capture failed: {}. Continuing with mic only.", e);
-        }
-
-        info!("Audio capture started");
         Ok(())
     }
 
-    /// Stop all audio capture
+    /// Stop audio capture
     pub fn stop(&mut self) {
+        let _ = self.command_sender.send(AudioCommand::Stop);
         *self.is_capturing.lock().unwrap() = false;
-
-        if let Some(stream) = self.mic_stream.take() {
-            drop(stream);
-            info!("Microphone capture stopped");
-        }
-
-        if let Some(stream) = self.system_stream.take() {
-            drop(stream);
-            info!("System audio capture stopped");
-        }
     }
 
     /// Get current audio levels for UI
@@ -240,12 +105,110 @@ impl AudioCapture {
     pub fn is_capturing(&self) -> bool {
         *self.is_capturing.lock().unwrap()
     }
+
+    /// Calculate RMS (Root Mean Square) for audio level
+    fn calculate_rms(samples: &[f32]) -> f32 {
+        if samples.is_empty() {
+            return 0.0;
+        }
+        let sum: f32 = samples.iter().map(|s| s * s).sum();
+        (sum / samples.len() as f32).sqrt()
+    }
 }
 
-impl Drop for AudioCapture {
-    fn drop(&mut self) {
-        self.stop();
+/// Audio processing thread (owns the Stream)
+fn audio_thread(
+    cmd_receiver: Receiver<AudioCommand>,
+    audio_sender: Sender<Vec<f32>>,
+    config: AudioConfig,
+    is_capturing: Arc<Mutex<bool>>,
+    current_levels: Arc<Mutex<AudioLevels>>,
+) {
+    use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+    use cpal::{SampleRate, StreamConfig};
+
+    info!("Audio thread started");
+
+    let mut mic_stream: Option<cpal::Stream> = None;
+
+    loop {
+        match cmd_receiver.recv() {
+            Ok(AudioCommand::Start) => {
+                info!("Starting audio capture");
+
+                // Get microphone device
+                let host = cpal::default_host();
+                let device = match host.default_input_device() {
+                    Some(d) => d,
+                    None => {
+                        error!("No default input device found");
+                        continue;
+                    }
+                };
+
+                info!("Using input device: {:?}", device.name());
+
+                let stream_config = StreamConfig {
+                    channels: config.channels,
+                    sample_rate: SampleRate(config.sample_rate),
+                    buffer_size: cpal::BufferSize::Fixed(config.buffer_size as u32),
+                };
+
+                let sender_clone = audio_sender.clone();
+                let levels_clone = current_levels.clone();
+                let is_capturing_clone = is_capturing.clone();
+
+                match device.build_input_stream(
+                    &stream_config,
+                    move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                        if *is_capturing_clone.lock().unwrap() {
+                            let mic_level = AudioCapture::calculate_rms(data);
+
+                            {
+                                let mut current = levels_clone.lock().unwrap();
+                                current.mic_level = mic_level;
+                                current.combined_level = mic_level;
+                            }
+
+                            let samples: Vec<f32> = data.to_vec();
+                            if let Err(e) = sender_clone.try_send(samples) {
+                                warn!("Failed to send audio samples: {}", e);
+                            }
+                        }
+                    },
+                    move |err| {
+                        error!("Audio stream error: {}", err);
+                    },
+                    None,
+                ) {
+                    Ok(stream) => {
+                        if let Err(e) = stream.play() {
+                            error!("Failed to start stream playback: {}", e);
+                            continue;
+                        }
+                        mic_stream = Some(stream);
+                        info!("Audio capture started successfully");
+                    }
+                    Err(e) => {
+                        error!("Failed to build input stream: {}", e);
+                    }
+                }
+            }
+            Ok(AudioCommand::Stop) => {
+                info!("Stopping audio capture");
+                if let Some(stream) = mic_stream.take() {
+                    drop(stream);
+                    info!("Audio stream stopped");
+                }
+            }
+            Err(_) => {
+                info!("Audio thread command channel closed, exiting");
+                break;
+            }
+        }
     }
+
+    info!("Audio thread stopped");
 }
 
 #[cfg(test)]

@@ -248,8 +248,8 @@ impl ScriptEngine {
 
     /// Set variable value
     pub fn set_variable(&mut self, name: &str, value: String) {
-        self.variables.insert(name.to_string(), value);
         debug!("Set variable: {} = {}", name, value);
+        self.variables.insert(name.to_string(), value);
     }
 
     /// Render text with variable substitution
