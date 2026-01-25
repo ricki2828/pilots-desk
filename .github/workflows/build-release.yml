@@ -78,11 +78,14 @@ jobs:
       - name: Show build errors on failure
         if: failure() && steps.tauri_build.outcome == 'failure'
         run: |
-          echo "=== Last 100 lines of build output ==="
-          tail -100 build-output.log || cat build-output.log
-          echo ""
-          echo "=== Checking for Tauri bundler errors ==="
-          ls -la src-tauri/target/release/bundle/ || echo "Bundle directory not created"
+          echo "### Build Failed - Error Details" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "```" >> $GITHUB_STEP_SUMMARY
+          tail -100 build-output.log 2>/dev/null || cat build-output.log 2>/dev/null || echo "No build output captured"
+          echo "```" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Also outputting to console:"
+          tail -100 build-output.log || cat build-output.log || echo "No build output"
         shell: bash
 
       - name: List build outputs (for debugging)
