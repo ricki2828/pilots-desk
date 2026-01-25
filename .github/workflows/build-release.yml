@@ -28,7 +28,7 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: './src-tauri -> target'
-          key: v0.1.0-tailwind-v3
+          key: v0.1.0-thread-safe
 
       - name: Verify checkout
         run: |
