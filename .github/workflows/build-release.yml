@@ -24,6 +24,18 @@ jobs:
         with:
           toolchain: stable
 
+      - name: Setup MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Verify build tools
+        run: |
+          echo "CMake version:"
+          cmake --version
+          echo "MSVC compiler:"
+          cl.exe
+        shell: cmd
+        continue-on-error: true
+
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:

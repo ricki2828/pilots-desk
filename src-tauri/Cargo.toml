@@ -41,6 +41,6 @@ tokio = { version = "1", features = ["full"] }
 # Date/Time
 chrono = { version = "0.4", features = ["serde"] }
 
-# Whisper transcription
-whisper-rs = { version = "0.12" }
+# Whisper transcription - using latest version with better Windows support
+whisper-rs = { version = "0.15" }
 
