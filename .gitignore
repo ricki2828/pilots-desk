@@ -31,6 +31,19 @@ Thumbs.db
 .env
 .env.local
 
+# Python
+venv/
+**/venv/
+**/*_env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Whisper.cpp source (use submodule if needed)
+whisper.cpp/
+
 # Whisper models (downloaded during build by GitHub Actions)
 models/*.bin
 

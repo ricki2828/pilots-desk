@@ -1,0 +1,226 @@
+Sky TV NZ - Adherence Scoring Guidelines
+==========================================
+
+CONTEXT:
+- South African agents selling to New Zealand customers
+- Sky TV satellite television packages (Sport, Movies, SoHo)
+- Accent differences are expected (SA agents speaking to NZ customers)
+- Focus on KEY POINTS, not exact wording
+
+ADHERENCE PRINCIPLES:
+
+1. Key Points Coverage (60% of score)
+   - Did agent mention the main value propositions?
+   - Did agent address customer's stated needs?
+   - Did agent explain package benefits clearly?
+
+2. Structure & Flow (20% of score)
+   - Did agent follow logical progression?
+   - Did agent pause for customer responses?
+   - Did agent ask qualifying questions?
+
+3. Professionalism & Tone (20% of score)
+   - Was agent friendly and respectful?
+   - Did agent use appropriate language?
+   - Did agent stay positive during objections?
+
+SCORING RUBRIC:
+
+0.9-1.0 (Excellent)
+- All key points covered
+- Natural, conversational tone
+- Addressed customer needs directly
+- Professional throughout
+
+0.75-0.89 (Good)
+- Most key points covered
+- Minor omissions acceptable
+- Professional tone maintained
+- Customer engagement evident
+
+0.6-0.74 (Acceptable)
+- Core message delivered
+- Some key points missed
+- Tone generally professional
+- Basic customer interaction
+
+0.4-0.59 (Needs Improvement)
+- Missing multiple key points
+- Went significantly off-script
+- Professionalism concerns
+- Weak customer engagement
+
+0.0-0.39 (Poor)
+- Failed to deliver core message
+- Major script violations
+- Unprofessional behavior
+- Did not address customer
+
+SPECIAL CONSIDERATIONS:
+
+South African Accents:
+- Pronunciation differences acceptable
+- "rugby" may sound like "ragby"
+- Vowel shifts (e.g., "price" → "preyce") are fine
+- Focus on CONTENT, not accent
+
+Paraphrasing:
+- Paraphrasing is ENCOURAGED if meaning preserved
+- Natural conversation > robotic script reading
+- Examples:
+  * "We have rugby coverage" = "We cover all the rugby matches"
+  * "Would you like Sport?" = "Are you interested in our Sport package?"
+
+Extra Information:
+- Adding helpful context does NOT lower score
+- Building rapport is positive
+- Answering customer questions is good
+- Going beyond script can be excellent
+
+Common Pitfalls (Lower Score):
+- Skipping price disclosure
+- Not mentioning contract terms
+- Ignoring customer objections
+- Rushing through compliance
+- Missing keyword triggers for next script node
+
+KEYWORD MATCHING FOR NAVIGATION:
+
+Critical Keywords (Must be present for auto-navigation):
+- "rugby", "sport", "all blacks" → Sport pitch node
+- "movies", "films", "entertainment" → Movies pitch node
+- "not interested", "no thanks" → Objection handling
+- "how much", "price", "cost" → Price reveal
+
+If these keywords are missing, navigation may fail even if adherence is high.
+
+=====================================
+COMPLIANCE NODES - SPECIAL HANDLING
+=====================================
+
+Recording Consent (CRITICAL):
+- MUST include "recording" or "recorded"
+- Near-verbatim required (95%+)
+- Example: "This call is being recorded for quality and training purposes"
+- Missing = CRITICAL violation
+
+Parental Controls (HIGH):
+- MUST mention age restrictions or parental controls
+- 85%+ match required
+- Example: "Please note parental controls are available for age-restricted content"
+- Missing = HIGH violation
+
+Price Disclosure (MEDIUM):
+- MUST clearly state monthly price
+- 80%+ match required
+- Example: "The Sport package is $29.99 per month"
+- Missing = MEDIUM violation
+
+=====================================
+EXAMPLES - SCORED SCENARIOS
+=====================================
+
+Example 1: Excellent (0.95)
+Expected: "Hi there! I'm calling from Sky TV. We have some exciting new rugby packages perfect for All Blacks fans."
+Actual: "Good morning! This is John from Sky TV New Zealand. I wanted to tell you about our rugby packages - they're perfect if you follow the All Blacks."
+
+Analysis:
++ All key points covered (Sky TV, rugby, packages, All Blacks)
++ Natural, conversational tone
++ Added greeting ("Good morning")
++ Paraphrased effectively
+Score: 0.95
+
+Example 2: Good (0.82)
+Expected: "Our Sport package includes all rugby matches, cricket, and international football for just $29.99 per month."
+Actual: "So the Sport package has rugby and cricket for $29.99 a month."
+
+Analysis:
++ Core points covered (Sport package, rugby, cricket, price)
+- Missed "football"
+- Missed "all matches" qualifier
++ Price stated clearly
+Score: 0.82
+
+Example 3: Acceptable (0.68)
+Expected: "Would you be interested in hearing more about our Movies package? It includes HBO, Disney, and over 100 channels."
+Actual: "We also have a Movies package with lots of channels."
+
+Analysis:
++ Mentioned Movies package
+- Missed specific channels (HBO, Disney)
+- Missed channel count
+- Very brief, could be more engaging
+Score: 0.68
+
+Example 4: Needs Improvement (0.45)
+Expected: "I understand you're not interested right now. Can I ask what's holding you back? Price, or is it the programming?"
+Actual: "Okay, no problem. Thanks anyway."
+
+Analysis:
+- Didn't attempt objection handling
+- Didn't ask qualifying questions
+- Gave up immediately
++ Was polite
+Score: 0.45
+
+Example 5: Poor (0.25)
+Expected: "This call is being recorded for quality and training purposes."
+Actual: "We might record this."
+
+Analysis:
+- COMPLIANCE VIOLATION (recording consent)
+- Not near-verbatim
+- Vague and unprofessional
+- CRITICAL failure
+Score: 0.25 (Compliance violation overrides other scoring)
+
+=====================================
+NUDGE GENERATION GUIDELINES
+=====================================
+
+When generating nudges, keep them:
+1. SHORT (max 15 words)
+2. ACTIONABLE (specific tip)
+3. POSITIVE (encouraging tone)
+4. REAL-TIME APPROPRIATE (won't distract from call)
+
+Good Nudges:
+- "Remember to mention the All Blacks coverage"
+- "Ask about their sports preferences"
+- "Don't forget to state the monthly price"
+- "Pause for customer response"
+
+Bad Nudges:
+- "You're doing terrible, read the script!" (negative)
+- "You need to improve your adherence score by following the script more closely and ensuring all key points are covered" (too long)
+- "Script says X" (not actionable)
+- "URGENT: STOP TALKING" (too distracting)
+
+=====================================
+SA ACCENT BASELINE FOR PACE/ENERGY
+=====================================
+
+IMPORTANT: Pace and energy scoring should be based on SOUTH AFRICAN AGENT speech patterns, NOT New Zealand customer patterns.
+
+SA Agent Baseline:
+- Speaking rate: 140-160 words/minute (slightly faster than NZ average)
+- Pauses: Shorter between sentences
+- Energy: Generally higher enthusiasm baseline
+- Intonation: Rising at end of statements (SA characteristic)
+
+Do NOT penalize for:
+- Faster speech rate compared to NZ norm
+- SA intonation patterns
+- Higher baseline energy
+- Shorter pauses
+
+DO penalize for:
+- Rushed speech (>200 wpm)
+- Monotone delivery (no variation)
+- Long awkward silences (>5 seconds)
+- Overly aggressive tone
+
+=====================================
+END OF GUIDELINES
+=====================================

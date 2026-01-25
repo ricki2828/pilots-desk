@@ -36,7 +36,8 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "sidecars/whisper-deps"
+      "sidecars/whisper-deps",
+      "../scripts"
     ],
     "externalBin": ["sidecars/whisper"],
     "windows": {

@@ -70,7 +70,7 @@ export default function ScriptViewer() {
   useEffect(() => {
     const loadScript = async () => {
       try {
-        const scriptPath = "/home/ricki28/pilots-desk/scripts/sky_tv_nz/main_pitch.json";
+        const scriptPath = "scripts/sky_tv_nz/main_pitch.json";
         const result = await invoke<string>("load_script", { scriptPath });
         setScriptName(result);
         setScriptLoaded(true);

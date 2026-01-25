@@ -1,0 +1,121 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pilot's Desk Script Schema",
+  "description": "JSON schema for sales script definitions with nodes and transitions",
+  "type": "object",
+  "required": ["version", "client_id", "name", "nodes"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Script version (semver format)",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "client_id": {
+      "type": "string",
+      "description": "Client identifier (e.g., SKY_TV_NZ)",
+      "enum": ["SKY_TV_NZ", "SIMPLY_BB", "KEEP_CA"]
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable script name"
+    },
+    "description": {
+      "type": "string",
+      "description": "Script description and purpose"
+    },
+    "variables": {
+      "type": "array",
+      "description": "Global variables available in script",
+      "items": {
+        "type": "string"
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "description": "Script nodes (dialogue, branches, widgets, compliance)",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/node"
+      }
+    },
+    "widgets": {
+      "type": "object",
+      "description": "Widget definitions (calculators, selectors)",
+      "additionalProperties": {
+        "$ref": "#/definitions/widget"
+      }
+    }
+  },
+  "definitions": {
+    "node": {
+      "type": "object",
+      "required": ["id", "type", "config"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique node identifier"
+        },
+        "type": {
+          "type": "string",
+          "description": "Node type",
+          "enum": ["SCRIPT", "BRANCH", "WIDGET", "COMPLIANCE", "SCRIPT_AND_WIDGET", "ACTION"]
+        },
+        "config": {
+          "type": "object",
+          "description": "Node configuration (varies by type)"
+        },
+        "transitions": {
+          "type": "array",
+          "description": "Possible transitions to next nodes",
+          "items": {
+            "$ref": "#/definitions/transition"
+          }
+        }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "required": ["trigger_type", "next_node"],
+      "properties": {
+        "trigger_type": {
+          "type": "string",
+          "description": "What triggers this transition",
+          "enum": ["INTENT", "KEYWORD", "TIMER", "MANUAL", "AUTO"]
+        },
+        "value": {
+          "description": "Trigger value (keywords array or intent name)",
+          "oneOf": [
+            {"type": "string"},
+            {"type": "array", "items": {"type": "string"}}
+          ]
+        },
+        "next_node": {
+          "type": "string",
+          "description": "ID of the next node"
+        },
+        "confidence_threshold": {
+          "type": "number",
+          "description": "Minimum confidence for semantic matching (0.0-1.0)",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.7
+        }
+      }
+    },
+    "widget": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Widget type",
+          "enum": ["SKY_TV_PACKAGES", "CONTRACT_CALCULATOR", "CREDIT_ESTIMATOR"]
+        },
+        "config": {
+          "type": "object",
+          "description": "Widget-specific configuration"
+        }
+      }
+    }
+  }
+}

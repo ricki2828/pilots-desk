@@ -193,8 +193,20 @@ async fn is_transcribing(state: State<'_, AppState>) -> Result<bool, String> {
 
 /// Load script from file
 #[tauri::command]
-async fn load_script(state: State<'_, AppState>, script_path: String) -> Result<String, String> {
-    let engine = ScriptEngine::load_from_file(&script_path)?;
+async fn load_script(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    script_path: String
+) -> Result<String, String> {
+    // Resolve resource path
+    let resolved_path = app.path()
+        .resource_dir()
+        .map_err(|e| format!("Failed to get resource directory: {}", e))?
+        .join(&script_path);
+
+    info!("Loading script from: {:?}", resolved_path);
+
+    let engine = ScriptEngine::load_from_file(&resolved_path)?;
 
     let script_name = engine.get_name().to_string();
     let script_version = engine.get_version().to_string();
