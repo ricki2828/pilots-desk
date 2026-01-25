@@ -1,9 +1,10 @@
 use crossbeam_channel::{Receiver, Sender};
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
-use std::process::{Child, Command, Stdio};
+use std::process::Child;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use tauri::Manager;
 
 /// Whisper model configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -101,19 +102,13 @@ impl WhisperEngine {
 
     /// Start whisper.cpp as external process
     fn start_whisper_process(&mut self) -> Result<(), String> {
-        // Path to whisper.cpp executable (should be in sidecars/)
-        let whisper_path = if cfg!(target_os = "windows") {
-            "sidecars/whisper.exe"
-        } else {
-            "sidecars/whisper"
-        };
+        // In bundled apps, Tauri names the sidecar binary as "whisper-sidecar"
+        // In development, look for the platform-specific binary
+        let whisper_binary = "whisper-sidecar";
 
-        if !std::path::Path::new(whisper_path).exists() {
-            warn!("Whisper executable not found at {}. Using mock mode.", whisper_path);
-            return self.start_mock_mode();
-        }
+        info!("Attempting to start Whisper sidecar: {}", whisper_binary);
 
-        let child = Command::new(whisper_path)
+        let child = std::process::Command::new(whisper_binary)
             .arg("-m")
             .arg(&self.config.model_path)
             .arg("-l")
@@ -121,11 +116,19 @@ impl WhisperEngine {
             .arg("-t")
             .arg(self.config.num_threads.to_string())
             .arg("--stream")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| format!("Failed to spawn whisper process: {}", e))?;
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn();
+
+        let child = match child {
+            Ok(c) => c,
+            Err(e) => {
+                warn!("Failed to start Whisper sidecar: {}", e);
+                warn!("Falling back to mock mode");
+                return self.start_mock_mode();
+            }
+        };
 
         let mut state = self.state.lock().unwrap();
         *state = WhisperState::Running(child);

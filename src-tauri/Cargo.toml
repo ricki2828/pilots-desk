@@ -41,3 +41,6 @@ tokio = { version = "1", features = ["full"] }
 # Date/Time
 chrono = { version = "0.4", features = ["serde"] }
 
+# Whisper transcription
+mutter = "0.3"
+
