@@ -1,36 +1,25 @@
 /// Windows microphone permissions module
-/// Triggers native Windows permission dialog automatically
+/// Opens Windows Settings directly to microphone permissions page
 
 #[cfg(target_os = "windows")]
 pub async fn request_microphone_permission() -> Result<bool, String> {
-    use windows::Media::Capture::{MediaCapture, MediaCaptureInitializationSettings};
+    use std::process::Command;
 
-    log::info!("Requesting Windows microphone permissions...");
+    log::info!("Opening Windows microphone permissions settings...");
 
-    // Create MediaCapture instance - this triggers Windows permission dialog
-    let capture = MediaCapture::new().map_err(|e| format!("Failed to create MediaCapture: {}", e))?;
-
-    // Initialize with audio-only settings - this shows the permission popup
-    let settings = MediaCaptureInitializationSettings::new()
-        .map_err(|e| format!("Failed to create settings: {}", e))?;
-
-    settings.SetStreamingCaptureMode(
-        windows::Media::Capture::StreamingCaptureMode::Audio
-    ).map_err(|e| format!("Failed to set audio mode: {}", e))?;
-
-    // This line triggers the Windows permission dialog!
-    let async_op = capture.InitializeAsync(&settings)
-        .map_err(|e| format!("Failed to initialize capture: {}", e))?;
-
-    // Wait for the async operation to complete
-    match async_op.get() {
+    // Open Windows Settings directly to microphone permissions page
+    // This is much simpler and more reliable than trying to trigger a dialog
+    match Command::new("cmd")
+        .args(&["/C", "start", "ms-settings:privacy-microphone"])
+        .spawn()
+    {
         Ok(_) => {
-            log::info!("✅ Microphone permission granted!");
-            Ok(true)
+            log::info!("✅ Opened Windows Settings - Microphone permissions page");
+            Ok("Opened Windows Settings. Please enable 'Microphone access', 'Let apps access your microphone', and 'Let desktop apps access your microphone', then restart the app.".to_string())
         },
         Err(e) => {
-            log::error!("❌ Microphone permission denied: {}", e);
-            Err(format!("Permission denied by user: {}", e))
+            log::error!("❌ Failed to open Settings: {}", e);
+            Err(format!("Failed to open Windows Settings: {}. Please open Settings manually.", e))
         }
     }
 }

@@ -57,14 +57,14 @@ export default function PermissionsHelper({ isOpen, onClose }: PermissionsHelper
             </p>
           </div>
 
-          {/* Auto-Request Button (Primary Solution) */}
+          {/* Auto-Open Settings Button (Primary Solution) */}
           <div className="bg-accent/10 border-2 border-accent rounded-sm p-6">
             <h3 className="text-xl font-heading font-bold text-foreground mb-3">
               🚀 Easiest Fix - Try This First!
             </h3>
             <p className="text-sm font-body text-foreground mb-4">
-              Click the button below to automatically trigger the Windows permission dialog.
-              This is the fastest way to grant microphone access.
+              Click the button below to automatically open Windows Settings to the microphone permissions page.
+              Then enable all three toggles and restart the app.
             </p>
 
             <button
@@ -80,21 +80,21 @@ export default function PermissionsHelper({ isOpen, onClose }: PermissionsHelper
                   : "bg-accent text-accentForeground"
               }`}
             >
-              {isRequesting && "⏳ Requesting Permissions..."}
-              {!isRequesting && requestStatus === "success" && "✅ Permission Granted! Closing..."}
-              {!isRequesting && requestStatus === "error" && "❌ Failed - Try Manual Steps Below"}
-              {!isRequesting && requestStatus === "idle" && "🎤 Request Microphone Access"}
+              {isRequesting && "⏳ Opening Settings..."}
+              {!isRequesting && requestStatus === "success" && "✅ Settings Opened!"}
+              {!isRequesting && requestStatus === "error" && "❌ Failed - Use Manual Steps Below"}
+              {!isRequesting && requestStatus === "idle" && "🔧 Open Microphone Settings"}
             </button>
 
             {requestStatus === "success" && (
               <p className="mt-3 text-sm font-body text-quaternary text-center animate-popIn">
-                ✅ Success! You can now use the microphone. Click "Start Capture" to begin.
+                ✅ Windows Settings opened! Enable all microphone permissions, then close and restart Pilot's Desk.
               </p>
             )}
 
             {requestStatus === "error" && errorMessage && (
               <p className="mt-3 text-xs font-body text-destructive bg-destructive/10 border border-destructive rounded-sm p-2">
-                Error: {errorMessage}
+                Could not auto-open Settings. Please use manual steps below.
               </p>
             )}
           </div>
