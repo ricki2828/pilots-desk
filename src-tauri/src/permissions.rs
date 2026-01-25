@@ -2,7 +2,7 @@
 /// Opens Windows Settings directly to microphone permissions page
 
 #[cfg(target_os = "windows")]
-pub async fn request_microphone_permission() -> Result<bool, String> {
+pub async fn request_microphone_permission() -> Result<String, String> {
     use std::process::Command;
 
     log::info!("Opening Windows microphone permissions settings...");
@@ -25,9 +25,9 @@ pub async fn request_microphone_permission() -> Result<bool, String> {
 }
 
 #[cfg(not(target_os = "windows"))]
-pub async fn request_microphone_permission() -> Result<bool, String> {
+pub async fn request_microphone_permission() -> Result<String, String> {
     // On non-Windows platforms, assume permissions are granted
     // (Linux/macOS handle this differently)
     log::info!("Non-Windows platform - skipping permission request");
-    Ok(true)
+    Ok("Permissions granted (non-Windows platform)".to_string())
 }
