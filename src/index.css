@@ -1,18 +1,48 @@
+/* Import CoSauce fonts */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  @apply bg-gray-50;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-body;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading font-bold;
+  }
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+@layer components {
+  /* CoSauce button styles */
+  .btn-primary {
+    @apply bg-accent text-accentForeground border-2 border-foreground rounded-sm px-6 py-3 font-heading font-bold shadow-pop hover:shadow-pop-hover active:shadow-pop-active transition-all hover:-translate-y-0.5 active:translate-y-0;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary text-foreground border-2 border-foreground rounded-sm px-6 py-3 font-heading font-bold shadow-pop hover:shadow-pop-hover active:shadow-pop-active transition-all hover:-translate-y-0.5 active:translate-y-0;
+  }
+
+  .btn-tertiary {
+    @apply bg-tertiary text-foreground border-2 border-foreground rounded-sm px-6 py-3 font-heading font-bold shadow-pop hover:shadow-pop-hover active:shadow-pop-active transition-all hover:-translate-y-0.5 active:translate-y-0;
+  }
+
+  .card {
+    @apply bg-card border-2 border-foreground rounded-md shadow-pop p-6;
+  }
+
+  .card-hover {
+    @apply card hover:shadow-pop-hover transition-all hover:-translate-y-1;
+  }
+
+  .input {
+    @apply bg-input border-2 border-foreground rounded-sm px-4 py-2 focus:outline-none focus:ring-2 focus:ring-ring font-body;
+  }
 }

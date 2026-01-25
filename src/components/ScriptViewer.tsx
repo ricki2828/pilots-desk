@@ -237,43 +237,43 @@ export default function ScriptViewer() {
       .filter((n): n is ScriptNode => n !== undefined);
   };
 
-  // Get node type badge color
+  // Get node type badge color (CoSauce style)
   const getNodeTypeColor = (type: string): string => {
     switch (type) {
       case "SCRIPT":
-        return "bg-blue-100 text-blue-800";
+        return "bg-accent/20 text-foreground border-accent";
       case "BRANCH":
-        return "bg-yellow-100 text-yellow-800";
+        return "bg-tertiary/20 text-foreground border-tertiary";
       case "WIDGET":
-        return "bg-purple-100 text-purple-800";
+        return "bg-secondary/20 text-foreground border-secondary";
       case "COMPLIANCE":
-        return "bg-red-100 text-red-800";
+        return "bg-secondary/30 text-foreground border-secondary";
       case "SCRIPT_AND_WIDGET":
-        return "bg-indigo-100 text-indigo-800";
+        return "bg-accent/30 text-foreground border-accent";
       case "ACTION":
-        return "bg-green-100 text-green-800";
+        return "bg-quaternary/20 text-foreground border-quaternary";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-muted text-foreground border-border";
     }
   };
 
   if (error) {
     return (
-      <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
-        <h3 className="text-lg font-semibold text-red-800 mb-2">Script Load Error</h3>
-        <p className="text-red-600">{error}</p>
+      <div className="p-8 bg-secondary/20 border-2 border-secondary rounded-md shadow-pop-pink">
+        <h3 className="text-2xl font-heading font-bold text-foreground mb-3">Script Load Error</h3>
+        <p className="text-foreground font-body">{error}</p>
       </div>
     );
   }
 
   if (!scriptLoaded || !currentNode) {
     return (
-      <div className="p-6 text-center">
-        <div className="animate-pulse">
-          <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+      <div className="p-8 text-center">
+        <div className="animate-pulse space-y-4">
+          <div className="h-6 bg-muted border-2 border-border rounded w-3/4 mx-auto"></div>
+          <div className="h-6 bg-muted border-2 border-border rounded w-1/2 mx-auto"></div>
         </div>
-        <p className="mt-4 text-gray-600">Loading script...</p>
+        <p className="mt-6 text-foreground font-body font-semibold text-lg">Loading script...</p>
       </div>
     );
   }
@@ -281,17 +281,17 @@ export default function ScriptViewer() {
   const nextNodes = getNextNodes();
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col bg-background">
       {/* Script Header */}
-      <div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white p-4 shadow-lg">
+      <div className="bg-accent border-b-2 border-foreground p-6 shadow-pop">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold">{scriptName}</h2>
-            <p className="text-primary-100 text-sm">Node: {currentNode.id}</p>
+            <h2 className="text-2xl font-heading font-bold text-accentForeground">{scriptName}</h2>
+            <p className="text-accentForeground/80 text-sm font-body font-semibold mt-1">Node: {currentNode.id}</p>
           </div>
           <button
             onClick={resetScript}
-            className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded text-sm transition-colors"
+            className="px-4 py-2 bg-accentForeground text-accent border-2 border-foreground rounded-sm font-heading font-bold text-sm shadow-pop-active hover:shadow-pop hover:-translate-y-0.5 transition-all"
           >
             Reset
           </button>
@@ -299,43 +299,43 @@ export default function ScriptViewer() {
       </div>
 
       {/* Current Node */}
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getNodeTypeColor(currentNode.type)}`}>
+      <div className="flex-1 overflow-y-auto p-8">
+        <div className="mb-8 animate-popIn">
+          <div className="flex items-center gap-3 mb-4">
+            <span className={`px-4 py-2 border-2 rounded-sm text-sm font-heading font-bold ${getNodeTypeColor(currentNode.type)}`}>
               {currentNode.type}
             </span>
             {currentNode.config.verbatim_match && (
-              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">
+              <span className="px-4 py-2 border-2 border-secondary rounded-sm text-sm font-heading font-bold bg-secondary/20 text-foreground">
                 COMPLIANCE: {(currentNode.config.verbatim_match * 100).toFixed(0)}% Match Required
               </span>
             )}
           </div>
 
           {currentNode.config.text && (
-            <div className="bg-white border-2 border-primary-200 rounded-lg p-6 shadow-sm">
-              <p className="text-lg leading-relaxed text-gray-800 whitespace-pre-wrap">
+            <div className="bg-card border-2 border-foreground rounded-md p-8 shadow-pop">
+              <p className="text-xl leading-relaxed text-foreground font-body whitespace-pre-wrap">
                 {currentNode.config.text}
               </p>
             </div>
           )}
 
           {currentNode.config.display_notes && (
-            <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded p-3">
-              <p className="text-sm text-yellow-800">
-                <strong>Notes:</strong> {currentNode.config.display_notes}
+            <div className="mt-4 bg-tertiary/20 border-2 border-tertiary rounded-sm p-4">
+              <p className="text-sm text-foreground font-body">
+                <strong className="font-bold">Notes:</strong> {currentNode.config.display_notes}
               </p>
             </div>
           )}
 
           {currentNode.config.keywords && currentNode.config.keywords.length > 0 && (
-            <div className="mt-3">
-              <p className="text-xs text-gray-500 mb-2">Listening for keywords:</p>
+            <div className="mt-4">
+              <p className="text-sm text-mutedForeground font-body font-semibold mb-2">Listening for keywords:</p>
               <div className="flex flex-wrap gap-2">
                 {currentNode.config.keywords.map((keyword, idx) => (
                   <span
                     key={idx}
-                    className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs"
+                    className="px-3 py-1.5 bg-muted border-2 border-foreground text-foreground rounded-sm text-sm font-body font-semibold"
                   >
                     {keyword}
                   </span>
@@ -360,30 +360,30 @@ export default function ScriptViewer() {
         {/* Next Possible Nodes (Dimmed Preview) */}
         {nextNodes.length > 0 && (
           <div className="mt-8">
-            <h3 className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wide">
+            <h3 className="text-lg font-heading font-bold text-mutedForeground mb-4 uppercase tracking-wide">
               Next Steps ({nextNodes.length})
             </h3>
-            <div className="space-y-3">
+            <div className="space-y-4">
               {nextNodes.map((node, idx) => (
                 <button
                   key={node.id}
                   onClick={() => navigateToNode(node.id)}
-                  className="w-full text-left bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg p-4 opacity-60 hover:opacity-100 transition-all"
+                  className="w-full text-left bg-muted hover:bg-card border-2 border-border hover:border-foreground rounded-sm p-5 opacity-60 hover:opacity-100 transition-all hover:shadow-pop-active"
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getNodeTypeColor(node.type)}`}>
+                    <span className={`px-3 py-1 border-2 rounded-sm text-xs font-heading font-bold ${getNodeTypeColor(node.type)}`}>
                       {node.type}
                     </span>
-                    <span className="text-xs text-gray-500">{node.id}</span>
+                    <span className="text-xs text-mutedForeground font-mono font-semibold">{node.id}</span>
                   </div>
                   {node.config.text && (
-                    <p className="text-sm text-gray-600 line-clamp-2">
+                    <p className="text-sm text-foreground font-body line-clamp-2">
                       {node.config.text.substring(0, 150)}...
                     </p>
                   )}
                   {/* Show trigger info */}
                   {currentNode.transitions[idx] && (
-                    <div className="mt-2 text-xs text-gray-400">
+                    <div className="mt-2 text-xs text-mutedForeground font-body">
                       Trigger: {currentNode.transitions[idx].trigger_type}
                       {currentNode.transitions[idx].value && (
                         <span className="ml-2">
@@ -404,19 +404,23 @@ export default function ScriptViewer() {
       </div>
 
       {/* Keyboard Hints */}
-      <div className="bg-gray-50 border-t border-gray-200 p-3">
-        <div className="flex items-center justify-between text-xs text-gray-600">
+      <div className="bg-muted border-t-2 border-foreground p-4">
+        <div className="flex items-center justify-between text-sm text-foreground">
           <div className="flex items-center gap-6">
-            <span><kbd className="px-2 py-1 bg-white border rounded">↓</kbd> Next</span>
-            <span><kbd className="px-2 py-1 bg-white border rounded">↑</kbd> Back</span>
-            <span>Click card to jump</span>
+            <span className="font-body font-semibold">
+              <kbd className="px-3 py-1.5 bg-card border-2 border-foreground rounded-sm font-heading font-bold shadow-pop-active">↓</kbd> Next
+            </span>
+            <span className="font-body font-semibold">
+              <kbd className="px-3 py-1.5 bg-card border-2 border-foreground rounded-sm font-heading font-bold shadow-pop-active">↑</kbd> Back
+            </span>
+            <span className="font-body font-semibold">Click card to jump</span>
           </div>
           <button
             onClick={() => setScoringEnabled(!scoringEnabled)}
-            className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
+            className={`px-4 py-2 border-2 rounded-sm text-sm font-heading font-bold transition-all ${
               scoringEnabled
-                ? "bg-green-100 text-green-700 border border-green-300"
-                : "bg-gray-200 text-gray-600 border border-gray-300"
+                ? "bg-quaternary border-foreground shadow-pop hover:shadow-pop-hover hover:-translate-y-0.5"
+                : "bg-muted border-border shadow-pop-active"
             }`}
           >
             {scoringEnabled ? "✓ Scoring ON" : "Scoring OFF"}

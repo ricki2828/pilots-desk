@@ -181,10 +181,10 @@ function App() {
   };
 
   const getLevelColor = (level: number): string => {
-    if (level > 0.7) return "bg-red-500";
-    if (level > 0.4) return "bg-yellow-500";
-    if (level > 0.1) return "bg-green-500";
-    return "bg-gray-300";
+    if (level > 0.7) return "bg-secondary"; // Pink for high
+    if (level > 0.4) return "bg-tertiary"; // Yellow for medium
+    if (level > 0.1) return "bg-quaternary"; // Green for good
+    return "bg-muted"; // Muted for silent
   };
 
   const getLevelWidth = (level: number): string => {
@@ -197,41 +197,45 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 text-white">
-      <div className="container mx-auto px-4 py-8 max-w-[1920px]">
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-6 py-8 max-w-[1920px]">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">Pilot's Desk</h1>
-          <p className="text-gray-300">Phase 2: Script Navigation + Voice Guidance</p>
+        <div className="mb-8 animate-popIn">
+          <h1 className="text-5xl font-heading font-bold mb-2 text-foreground">
+            Pilot's Desk 🎯
+          </h1>
+          <p className="text-mutedForeground font-body text-lg">
+            Phase 2: Script Navigation + Voice Guidance
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 h-[calc(100vh-12rem)]">
+        <div className="grid grid-cols-1 lg:grid-cols-10 gap-8 h-[calc(100vh-12rem)]">
           {/* Left Column (70%): Script Viewer */}
-          <div className="lg:col-span-7 bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+          <div className="lg:col-span-7 card overflow-hidden shadow-pop-purple hover:shadow-pop-hover transition-all">
             <ScriptViewer />
           </div>
 
           {/* Right Column (30%): Audio Controls & Transcripts */}
-          <div className="lg:col-span-3 space-y-4 overflow-y-auto">
+          <div className="lg:col-span-3 space-y-6 overflow-y-auto">
             {/* Status Card */}
-            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-semibold">Status</h3>
-                <div className="flex items-center space-x-2">
+            <div className="card shadow-pop-soft">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-heading font-bold text-foreground">Status</h3>
+                <div className="flex items-center space-x-2 px-3 py-1.5 rounded-sm border-2 border-foreground bg-muted">
                   <div
-                    className={`w-2 h-2 rounded-full ${
+                    className={`w-3 h-3 rounded-full ${
                       isPaused
-                        ? "bg-yellow-500"
+                        ? "bg-tertiary"
                         : isTranscribing
-                        ? "bg-green-500 animate-pulse"
+                        ? "bg-quaternary animate-pulse"
                         : isCapturing
-                        ? "bg-yellow-500 animate-pulse"
+                        ? "bg-tertiary animate-pulse"
                         : isInitialized
-                        ? "bg-yellow-500"
-                        : "bg-gray-500"
+                        ? "bg-tertiary"
+                        : "bg-mutedForeground"
                     }`}
                   />
-                  <span className="text-xs">
+                  <span className="text-sm font-body font-semibold text-foreground">
                     {isPaused
                       ? "Paused"
                       : isTranscribing
@@ -246,26 +250,26 @@ function App() {
               </div>
 
               {error && (
-                <div className="text-xs text-red-300 mb-2 p-2 bg-red-900/30 rounded">
+                <div className="text-sm font-body p-3 bg-secondary/20 border-2 border-secondary rounded-sm">
                   {error}
                 </div>
               )}
             </div>
 
             {/* Audio Levels */}
-            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-              <h3 className="text-lg font-semibold mb-3">Audio Levels</h3>
+            <div className="card shadow-pop-soft">
+              <h3 className="text-xl font-heading font-bold mb-4 text-foreground">Audio Levels</h3>
 
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {/* Microphone Level */}
                 <div>
-                  <div className="flex justify-between mb-1">
-                    <span className="text-gray-300 text-xs">Mic</span>
-                    <span className="text-gray-400 font-mono text-xs">
+                  <div className="flex justify-between mb-2">
+                    <span className="text-foreground font-body font-semibold text-sm">Mic</span>
+                    <span className="text-mutedForeground font-mono text-sm font-bold">
                       {(audioLevels.mic_level * 100).toFixed(0)}%
                     </span>
                   </div>
-                  <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+                  <div className="w-full bg-muted border-2 border-foreground rounded-sm h-3 overflow-hidden">
                     <div
                       className={`h-full transition-all duration-75 ${getLevelColor(
                         audioLevels.mic_level
@@ -277,13 +281,13 @@ function App() {
 
                 {/* Combined Level */}
                 <div>
-                  <div className="flex justify-between mb-1">
-                    <span className="text-gray-300 text-xs font-semibold">Combined</span>
-                    <span className="text-gray-400 font-mono text-xs">
+                  <div className="flex justify-between mb-2">
+                    <span className="text-foreground font-body font-bold text-sm">Combined</span>
+                    <span className="text-mutedForeground font-mono text-sm font-bold">
                       {(audioLevels.combined_level * 100).toFixed(0)}%
                     </span>
                   </div>
-                  <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+                  <div className="w-full bg-muted border-2 border-foreground rounded-sm h-4 overflow-hidden">
                     <div
                       className={`h-full transition-all duration-75 ${getLevelColor(
                         audioLevels.combined_level
@@ -296,19 +300,19 @@ function App() {
             </div>
 
             {/* Controls */}
-            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-              <h3 className="text-lg font-semibold mb-3">Controls</h3>
+            <div className="card shadow-pop-soft">
+              <h3 className="text-xl font-heading font-bold mb-4 text-foreground">Controls</h3>
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {/* Audio Controls */}
                 {!isCapturing ? (
                   <button
                     onClick={handleStartCapture}
                     disabled={!isInitialized}
-                    className={`w-full px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                    className={`w-full transition-all ${
                       isInitialized
-                        ? "bg-green-600 hover:bg-green-700 active:bg-green-800"
-                        : "bg-gray-600 cursor-not-allowed"
+                        ? "bg-quaternary text-foreground border-2 border-foreground rounded-sm px-6 py-3 font-heading font-bold shadow-pop hover:shadow-pop-hover active:shadow-pop-active hover:-translate-y-0.5 active:translate-y-0"
+                        : "bg-muted text-mutedForeground border-2 border-border rounded-sm px-6 py-3 font-heading font-bold cursor-not-allowed opacity-50"
                     }`}
                   >
                     Start Capture
@@ -316,7 +320,7 @@ function App() {
                 ) : (
                   <button
                     onClick={handleStopCapture}
-                    className="w-full px-4 py-2 rounded-lg text-sm font-semibold bg-red-600 hover:bg-red-700 active:bg-red-800 transition-all"
+                    className="btn-secondary w-full"
                   >
                     Stop Capture
                   </button>
@@ -327,10 +331,10 @@ function App() {
                   <button
                     onClick={handleStartTranscription}
                     disabled={!isCapturing}
-                    className={`w-full px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                    className={`w-full transition-all ${
                       isCapturing
-                        ? "bg-blue-600 hover:bg-blue-700 active:bg-blue-800"
-                        : "bg-gray-600 cursor-not-allowed"
+                        ? "btn-primary"
+                        : "bg-muted text-mutedForeground border-2 border-border rounded-sm px-6 py-3 font-heading font-bold cursor-not-allowed opacity-50"
                     }`}
                   >
                     Start Transcription
@@ -338,14 +342,14 @@ function App() {
                 ) : isPaused ? (
                   <button
                     onClick={handleResume}
-                    className="w-full px-4 py-2 rounded-lg text-sm font-semibold bg-green-600 hover:bg-green-700 active:bg-green-800 transition-all"
+                    className="w-full bg-quaternary text-foreground border-2 border-foreground rounded-sm px-6 py-3 font-heading font-bold shadow-pop hover:shadow-pop-hover active:shadow-pop-active transition-all hover:-translate-y-0.5 active:translate-y-0"
                   >
                     Resume (Customer Back)
                   </button>
                 ) : (
                   <button
                     onClick={handleStopTranscription}
-                    className="w-full px-4 py-2 rounded-lg text-sm font-semibold bg-orange-600 hover:bg-orange-700 active:bg-orange-800 transition-all"
+                    className="btn-tertiary w-full"
                   >
                     Stop Transcription
                   </button>
@@ -355,7 +359,7 @@ function App() {
                 {isTranscribing && !isPaused && (
                   <button
                     onClick={handlePause}
-                    className="w-full px-4 py-2 rounded-lg text-sm font-semibold bg-yellow-600 hover:bg-yellow-700 active:bg-yellow-800 transition-all"
+                    className="btn-tertiary w-full"
                   >
                     Pause (Customer on Hold)
                   </button>
@@ -364,16 +368,16 @@ function App() {
             </div>
 
             {/* Transcript Display */}
-            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700 flex flex-col max-h-[calc(100vh-32rem)]">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-semibold">Transcripts</h3>
+            <div className="card shadow-pop-soft flex flex-col max-h-[calc(100vh-32rem)]">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-heading font-bold text-foreground">Transcripts</h3>
                 <button
                   onClick={handleClearTranscripts}
                   disabled={transcripts.length === 0}
-                  className={`px-3 py-1 rounded text-xs font-semibold transition-all ${
+                  className={`px-4 py-1.5 rounded-sm text-sm font-heading font-bold transition-all ${
                     transcripts.length > 0
-                      ? "bg-gray-700 hover:bg-gray-600"
-                      : "bg-gray-700 opacity-50 cursor-not-allowed"
+                      ? "bg-muted border-2 border-foreground hover:shadow-pop-active hover:-translate-y-0.5"
+                      : "bg-muted border-2 border-border opacity-50 cursor-not-allowed"
                   }`}
                 >
                   Clear
@@ -381,43 +385,43 @@ function App() {
               </div>
 
               {transcripts.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center text-gray-500">
-                  <p className="text-xs text-center">
+                <div className="flex-1 flex items-center justify-center text-mutedForeground">
+                  <p className="text-sm text-center font-body">
                     Start transcription<br />to see live text
                   </p>
                 </div>
               ) : (
-                <div className="flex-1 overflow-y-auto space-y-2">
+                <div className="flex-1 overflow-y-auto space-y-3">
                   {transcripts.map((transcript, index) => (
                     <div
                       key={index}
-                      className="bg-gray-900 rounded p-3 border border-gray-700"
+                      className="bg-card border-2 border-foreground rounded-sm p-4 shadow-pop-active animate-popIn"
                     >
-                      <div className="flex items-start justify-between mb-1">
-                        <span className="text-xs text-gray-400">
+                      <div className="flex items-start justify-between mb-2">
+                        <span className="text-xs font-mono text-mutedForeground">
                           {formatTime(transcript.timestamp)}
                         </span>
                         <span
-                          className={`text-xs px-1.5 py-0.5 rounded ${
+                          className={`text-xs px-2 py-1 rounded-sm font-bold border-2 ${
                             transcript.confidence > 0.8
-                              ? "bg-green-900 text-green-300"
+                              ? "bg-quaternary/20 border-quaternary text-foreground"
                               : transcript.confidence > 0.6
-                              ? "bg-yellow-900 text-yellow-300"
-                              : "bg-red-900 text-red-300"
+                              ? "bg-tertiary/20 border-tertiary text-foreground"
+                              : "bg-secondary/20 border-secondary text-foreground"
                           }`}
                         >
                           {(transcript.confidence * 100).toFixed(0)}%
                         </span>
                       </div>
-                      <p className="text-sm text-white">{transcript.text}</p>
+                      <p className="text-sm font-body text-foreground">{transcript.text}</p>
                     </div>
                   ))}
                 </div>
               )}
 
               {transcripts.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-gray-700">
-                  <div className="text-xs text-gray-400">
+                <div className="mt-3 pt-3 border-t-2 border-border">
+                  <div className="text-xs font-body font-semibold text-mutedForeground">
                     {transcripts.length} total
                   </div>
                 </div>
