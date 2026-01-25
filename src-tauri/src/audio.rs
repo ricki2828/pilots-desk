@@ -33,7 +33,7 @@ pub struct AudioLevels {
 
 /// Control commands for audio thread
 enum AudioCommand {
-    Start,
+    Start(Sender<Result<(), String>>), // Send back result of start attempt
     Stop,
 }
 
@@ -78,11 +78,28 @@ impl AudioCapture {
 
     /// Start audio capture
     pub fn start(&mut self) -> Result<(), String> {
+        // Create a channel to receive the result from audio thread
+        let (result_sender, result_receiver) = bounded(1);
+
         self.command_sender
-            .send(AudioCommand::Start)
+            .send(AudioCommand::Start(result_sender))
             .map_err(|e| format!("Failed to send start command: {}", e))?;
-        *self.is_capturing.lock().unwrap() = true;
-        Ok(())
+
+        // Wait for audio thread to confirm stream started (or failed)
+        match result_receiver.recv_timeout(std::time::Duration::from_secs(5)) {
+            Ok(Ok(())) => {
+                *self.is_capturing.lock().unwrap() = true;
+                Ok(())
+            }
+            Ok(Err(e)) => {
+                *self.is_capturing.lock().unwrap() = false;
+                Err(e)
+            }
+            Err(_) => {
+                *self.is_capturing.lock().unwrap() = false;
+                Err("Audio thread timeout - no response from microphone".to_string())
+            }
+        }
     }
 
     /// Stop audio capture
@@ -133,7 +150,7 @@ fn audio_thread(
 
     loop {
         match cmd_receiver.recv() {
-            Ok(AudioCommand::Start) => {
+            Ok(AudioCommand::Start(result_sender)) => {
                 info!("Starting audio capture");
 
                 // Get microphone device
@@ -142,11 +159,18 @@ fn audio_thread(
                     Some(d) => d,
                     None => {
                         error!("No default input device found");
+                        let _ = result_sender.send(Err(
+                            "No microphone detected. Please check:\n\
+                            1. A microphone is plugged in\n\
+                            2. Windows Settings → Privacy → Microphone → All 3 toggles are ON\n\
+                            3. Your microphone is set as the default recording device in Windows Sound Settings".to_string()
+                        ));
                         continue;
                     }
                 };
 
-                info!("Using input device: {:?}", device.name());
+                let device_name = device.name().unwrap_or_else(|_| "Unknown".to_string());
+                info!("Using input device: {}", device_name);
 
                 let stream_config = StreamConfig {
                     channels: config.channels,
@@ -184,13 +208,27 @@ fn audio_thread(
                     Ok(stream) => {
                         if let Err(e) = stream.play() {
                             error!("Failed to start stream playback: {}", e);
+                            let _ = result_sender.send(Err(format!(
+                                "Failed to start microphone stream: {}.\n\
+                                This usually means Windows is blocking microphone access.\n\
+                                Please restart the app as Administrator or check Windows permissions.", e
+                            )));
                             continue;
                         }
                         mic_stream = Some(stream);
-                        info!("Audio capture started successfully");
+                        info!("Audio capture started successfully on device: {}", device_name);
+                        let _ = result_sender.send(Ok(()));
                     }
                     Err(e) => {
                         error!("Failed to build input stream: {}", e);
+                        let _ = result_sender.send(Err(format!(
+                            "Failed to access microphone: {}.\n\
+                            Possible causes:\n\
+                            1. Microphone is being used by another application\n\
+                            2. Windows permissions not granted\n\
+                            3. Microphone driver issue\n\
+                            Try closing other apps using the microphone and restart Pilot's Desk.", e
+                        )));
                     }
                 }
             }
