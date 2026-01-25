@@ -35,17 +35,17 @@ export default function PermissionsHelper({ isOpen, onClose }: PermissionsHelper
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-foreground/50 flex items-center justify-center z-50 animate-popIn">
-      <div className="bg-background border-2 border-foreground rounded-md shadow-pop-purple max-w-2xl w-full mx-4">
+    <div className="fixed inset-0 bg-foreground/50 flex items-center justify-center z-50 animate-popIn p-4">
+      <div className="bg-background border-2 border-foreground rounded-md shadow-pop-purple max-w-2xl w-full max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="bg-secondary border-b-2 border-foreground p-6">
+        <div className="bg-secondary border-b-2 border-foreground p-6 flex-shrink-0">
           <h2 className="text-3xl font-heading font-bold text-foreground">
             🎤 Microphone Permissions Required
           </h2>
         </div>
 
-        {/* Content */}
-        <div className="p-8 space-y-6">
+        {/* Content - Scrollable */}
+        <div className="p-8 space-y-6 overflow-y-auto flex-1">
           {/* Issue */}
           <div className="bg-secondary/20 border-2 border-secondary rounded-sm p-6">
             <h3 className="text-xl font-heading font-bold text-foreground mb-3">
@@ -179,8 +179,8 @@ export default function PermissionsHelper({ isOpen, onClose }: PermissionsHelper
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="border-t-2 border-border p-6">
+        {/* Footer - Always visible at bottom */}
+        <div className="border-t-2 border-border p-6 flex-shrink-0 bg-background">
           <button
             onClick={onClose}
             className="w-full btn-primary"

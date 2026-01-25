@@ -47,17 +47,17 @@ export default function AudioSettings({ isOpen, onClose }: AudioSettingsProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-foreground/50 flex items-center justify-center z-50 animate-popIn">
-      <div className="bg-background border-2 border-foreground rounded-md shadow-pop-purple max-w-md w-full mx-4">
+    <div className="fixed inset-0 bg-foreground/50 flex items-center justify-center z-50 animate-popIn p-4">
+      <div className="bg-background border-2 border-foreground rounded-md shadow-pop-purple max-w-md w-full max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="bg-accent border-b-2 border-foreground p-6">
+        <div className="bg-accent border-b-2 border-foreground p-6 flex-shrink-0">
           <h2 className="text-2xl font-heading font-bold text-accentForeground">
             Audio Settings
           </h2>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-6">
+        {/* Content - Scrollable */}
+        <div className="p-6 space-y-6 overflow-y-auto flex-1">
           {/* Microphone Selection */}
           <div>
             <label className="block text-sm font-heading font-bold text-foreground mb-2">
@@ -103,8 +103,8 @@ export default function AudioSettings({ isOpen, onClose }: AudioSettingsProps) {
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="border-t-2 border-border p-6 flex gap-3">
+        {/* Footer - Always visible at bottom */}
+        <div className="border-t-2 border-border p-6 flex gap-3 flex-shrink-0 bg-background">
           <button
             onClick={onClose}
             className="flex-1 bg-muted border-2 border-foreground rounded-sm px-6 py-3 font-heading font-bold shadow-pop hover:shadow-pop-hover active:shadow-pop-active transition-all hover:-translate-y-0.5 active:translate-y-0"
