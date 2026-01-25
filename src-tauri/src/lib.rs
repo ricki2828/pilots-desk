@@ -198,15 +198,17 @@ async fn load_script(
     state: State<'_, AppState>,
     script_path: String
 ) -> Result<String, String> {
-    // Resolve resource path
+    // Resolve bundled resource path
     let resolved_path = app.path()
-        .resource_dir()
-        .map_err(|e| format!("Failed to get resource directory: {}", e))?
-        .join(&script_path);
+        .resolve(&script_path, tauri::path::BaseDirectory::Resource)
+        .map_err(|e| format!("Failed to resolve resource path for '{}': {}", script_path, e))?;
 
-    info!("Loading script from: {:?}", resolved_path);
+    info!("Script path requested: {}", script_path);
+    info!("Resolved full path: {:?}", resolved_path);
+    info!("Path exists: {}", resolved_path.exists());
 
-    let engine = ScriptEngine::load_from_file(&resolved_path)?;
+    let engine = ScriptEngine::load_from_file(&resolved_path)
+        .map_err(|e| format!("Failed to load script from {:?}: {}", resolved_path, e))?;
 
     let script_name = engine.get_name().to_string();
     let script_version = engine.get_version().to_string();
