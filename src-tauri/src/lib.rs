@@ -1,6 +1,6 @@
 mod audio;
 mod storage;
-mod whisper_mutter;
+mod whisper_native;
 mod script;
 mod permissions;
 
@@ -9,7 +9,7 @@ use log::info;
 use script::{ScriptEngine, ScriptNode};
 use std::sync::Mutex;
 use tauri::{Emitter, Manager, State};
-use whisper_mutter::{Transcript, WhisperConfig, WhisperEngine};
+use whisper_native::{Transcript, WhisperConfig, WhisperEngine};
 
 /// Application state
 pub struct AppState {

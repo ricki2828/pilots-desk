@@ -1,9 +1,9 @@
 use crossbeam_channel::{Receiver, Sender};
 use log::{error, info, warn};
-use mutter::{TranscriptionBuilder, whisper_rs::WhisperContext};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use whisper_rs::{WhisperContext, WhisperContextParameters, FullParams, SamplingStrategy};
 
 /// Whisper model configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,13 +34,14 @@ pub struct Transcript {
     pub is_final: bool,
 }
 
-/// Whisper engine using mutter crate
+/// Whisper engine using whisper-rs crate
 pub struct WhisperEngine {
     config: WhisperConfig,
     context: Option<Arc<Mutex<WhisperContext>>>,
     audio_receiver: Option<Receiver<Vec<f32>>>,
     transcript_sender: Option<Sender<Transcript>>,
     transcript_receiver: Option<Receiver<Transcript>>,
+    is_running: Arc<Mutex<bool>>,
 }
 
 impl WhisperEngine {
@@ -53,6 +54,7 @@ impl WhisperEngine {
             audio_receiver: None,
             transcript_sender: Some(transcript_tx),
             transcript_receiver: Some(transcript_rx),
+            is_running: Arc::new(Mutex::new(false)),
         }
     }
 
@@ -64,6 +66,17 @@ impl WhisperEngine {
     /// Get transcript output receiver
     pub fn get_transcript_receiver(&mut self) -> Option<Receiver<Transcript>> {
         self.transcript_receiver.take()
+    }
+
+    /// Check if engine is running
+    pub fn is_running(&self) -> bool {
+        *self.is_running.lock().unwrap()
+    }
+
+    /// Stop transcription
+    pub fn stop(&mut self) {
+        *self.is_running.lock().unwrap() = false;
+        info!("Whisper engine stopped");
     }
 
     /// Start Whisper processing
@@ -82,11 +95,13 @@ impl WhisperEngine {
 
         info!("Loading Whisper model from: {}", self.config.model_path);
 
-        // Load Whisper model using mutter
-        let ctx = WhisperContext::new(&self.config.model_path)
-            .map_err(|e| format!("Failed to load Whisper model: {}", e))?;
+        // Load Whisper model
+        let ctx_params = WhisperContextParameters::default();
+        let ctx = WhisperContext::new_with_params(&self.config.model_path, ctx_params)
+            .map_err(|e| format!("Failed to load Whisper model: {:?}", e))?;
 
         self.context = Some(Arc::new(Mutex::new(ctx)));
+        *self.is_running.lock().unwrap() = true;
 
         info!("Whisper model loaded successfully");
 
@@ -103,6 +118,7 @@ impl WhisperEngine {
         let context = self.context.clone().unwrap();
         let language = self.config.language.clone();
         let num_threads = self.config.num_threads;
+        let is_running = self.is_running.clone();
 
         thread::spawn(move || {
             info!("Whisper audio processing thread started");
@@ -111,7 +127,12 @@ impl WhisperEngine {
             const CHUNK_SIZE: usize = 16000 * 3; // 3 seconds of audio at 16kHz
 
             loop {
-                match audio_rx.recv() {
+                if !*is_running.lock().unwrap() {
+                    info!("Whisper thread stopping (is_running = false)");
+                    break;
+                }
+
+                match audio_rx.recv_timeout(std::time::Duration::from_millis(100)) {
                     Ok(samples) => {
                         buffer.extend_from_slice(&samples);
 
@@ -119,37 +140,55 @@ impl WhisperEngine {
                         if buffer.len() >= CHUNK_SIZE {
                             let chunk: Vec<f32> = buffer.drain(..CHUNK_SIZE).collect();
 
-                            // Transcribe using mutter
-                            let ctx = context.lock().unwrap();
+                            // Transcribe using whisper-rs
+                            let mut ctx = context.lock().unwrap();
 
-                            let builder = TranscriptionBuilder::new(&ctx)
-                                .set_language(&language)
-                                .set_num_threads(num_threads as i32);
+                            // Create parameters
+                            let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
+                            params.set_language(Some(&language));
+                            params.set_n_threads(num_threads as i32);
+                            params.set_print_progress(false);
+                            params.set_print_special(false);
+                            params.set_print_realtime(false);
 
-                            match builder.transcribe(&chunk) {
-                                Ok(transcription) => {
-                                    let text = transcription.text().trim().to_string();
+                            // Run transcription
+                            match ctx.full(params, &chunk) {
+                                Ok(_) => {
+                                    // Get number of segments
+                                    let num_segments = ctx.full_n_segments()
+                                        .unwrap_or(0);
 
-                                    if !text.is_empty() {
-                                        let transcript = Transcript {
-                                            text,
-                                            confidence: 0.85, // mutter doesn't expose confidence directly
-                                            timestamp: chrono::Utc::now().timestamp() as f64,
-                                            is_final: true,
-                                        };
+                                    // Extract text from all segments
+                                    for i in 0..num_segments {
+                                        if let Ok(segment_text) = ctx.full_get_segment_text(i) {
+                                            let text = segment_text.trim().to_string();
 
-                                        if let Err(e) = transcript_tx.try_send(transcript) {
-                                            warn!("Failed to send transcript: {}", e);
+                                            if !text.is_empty() {
+                                                let transcript = Transcript {
+                                                    text,
+                                                    confidence: 0.85,
+                                                    timestamp: chrono::Utc::now().timestamp() as f64,
+                                                    is_final: true,
+                                                };
+
+                                                if let Err(e) = transcript_tx.try_send(transcript) {
+                                                    warn!("Failed to send transcript: {}", e);
+                                                }
+                                            }
                                         }
                                     }
                                 }
                                 Err(e) => {
-                                    error!("Transcription error: {}", e);
+                                    error!("Transcription error: {:?}", e);
                                 }
                             }
                         }
                     }
-                    Err(_) => {
+                    Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
+                        // Continue loop
+                        continue;
+                    }
+                    Err(crossbeam_channel::RecvTimeoutError::Disconnected) => {
                         info!("Audio receiver closed, stopping Whisper thread");
                         break;
                     }
