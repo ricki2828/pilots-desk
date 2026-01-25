@@ -27,12 +27,21 @@ jobs:
       - name: Setup MSVC environment
         uses: ilammy/msvc-dev-cmd@v1
 
+      - name: Setup Clang/LLVM for whisper-rs
+        run: |
+          echo "Setting LIBCLANG_PATH for whisper-rs compilation..."
+          echo "LIBCLANG_PATH=C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\Llvm\x64\bin" >> $GITHUB_ENV
+          echo "✅ LIBCLANG_PATH configured"
+        shell: bash
+
       - name: Verify build tools
         run: |
           echo "CMake version:"
           cmake --version
           echo "MSVC compiler:"
           cl.exe
+          echo "Clang path:"
+          echo %LIBCLANG_PATH%
         shell: cmd
         continue-on-error: true
 
