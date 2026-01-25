@@ -1,0 +1,6 @@
+{
+  "agent_id": "test_agent_001",
+  "script_version_id": "sky_tv_v1",
+  "expected_text": "Hi {{customer_name}}, this is {{agent_name}} from Sky TV. How are you today?",
+  "actual_transcript": "Hi John, this is Sarah from Sky TV. How are you today?"
+}

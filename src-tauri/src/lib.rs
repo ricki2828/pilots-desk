@@ -7,7 +7,7 @@ use audio::{AudioCapture, AudioConfig, AudioLevels};
 use log::info;
 use script::{ScriptEngine, ScriptNode};
 use std::sync::Mutex;
-use tauri::{Emitter, State};
+use tauri::{Emitter, Manager, State};
 use whisper::{Transcript, WhisperConfig, WhisperEngine};
 
 /// Application state
