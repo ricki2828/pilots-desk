@@ -68,6 +68,14 @@ jobs:
         shell: bash
         continue-on-error: true
 
+      - name: Copy scripts for bundling
+        run: |
+          echo "Copying scripts directory into src-tauri for bundling..."
+          cp -r scripts src-tauri/scripts
+          echo "Scripts copied:"
+          ls -la src-tauri/scripts/
+        shell: bash
+
       - name: Build Tauri app
         id: tauri_build
         run: npm run tauri build --verbose 2>&1 | tee build-output.log
