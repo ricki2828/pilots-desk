@@ -2,6 +2,7 @@ mod audio;
 mod storage;
 mod whisper;
 mod script;
+mod permissions;
 
 use audio::{AudioCapture, AudioConfig, AudioLevels};
 use log::info;
@@ -27,9 +28,43 @@ impl Default for AppState {
     }
 }
 
+/// Request microphone permissions (manual trigger)
+#[tauri::command]
+async fn request_microphone_access() -> Result<String, String> {
+    info!("User manually requested microphone permissions");
+
+    match permissions::request_microphone_permission().await {
+        Ok(granted) => {
+            if granted {
+                Ok("Microphone access granted! You can now start recording.".to_string())
+            } else {
+                Err("Permission denied. Please try again or check Windows Settings.".to_string())
+            }
+        },
+        Err(e) => {
+            Err(format!("Failed to request permission: {}. Try checking Windows Settings manually.", e))
+        }
+    }
+}
+
 /// Initialize audio capture
 #[tauri::command]
 async fn init_audio(state: State<'_, AppState>) -> Result<String, String> {
+    // Request microphone permissions on Windows - this triggers the native permission dialog!
+    info!("Requesting microphone permissions...");
+    match permissions::request_microphone_permission().await {
+        Ok(granted) => {
+            if !granted {
+                return Err("Microphone permission denied. Please grant access in Windows Settings.".to_string());
+            }
+            info!("✅ Microphone permission granted");
+        },
+        Err(e) => {
+            log::warn!("Permission request failed (may already be granted): {}", e);
+            // Continue anyway - permission might already be granted from previous session
+        }
+    }
+
     let config = AudioConfig::default();
     let capture = AudioCapture::new(config);
 
@@ -366,6 +401,7 @@ pub fn run() {
             set_script_variable,
             reset_script,
             get_widget,
+            request_microphone_access,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

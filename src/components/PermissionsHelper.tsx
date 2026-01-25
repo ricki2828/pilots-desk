@@ -1,9 +1,37 @@
+import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+
 interface PermissionsHelperProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
 export default function PermissionsHelper({ isOpen, onClose }: PermissionsHelperProps) {
+  const [isRequesting, setIsRequesting] = useState(false);
+  const [requestStatus, setRequestStatus] = useState<"idle" | "success" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const handleAutoRequest = async () => {
+    setIsRequesting(true);
+    setRequestStatus("idle");
+    setErrorMessage("");
+
+    try {
+      const result = await invoke<string>("request_microphone_access");
+      console.log("Permission request result:", result);
+      setRequestStatus("success");
+      setTimeout(() => {
+        onClose();
+      }, 2000);
+    } catch (error) {
+      console.error("Permission request failed:", error);
+      setRequestStatus("error");
+      setErrorMessage(String(error));
+    } finally {
+      setIsRequesting(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -26,6 +54,55 @@ export default function PermissionsHelper({ isOpen, onClose }: PermissionsHelper
             <p className="text-base font-body text-foreground">
               Pilot's Desk needs microphone access to transcribe your calls and provide
               real-time coaching. Windows is currently blocking microphone access.
+            </p>
+          </div>
+
+          {/* Auto-Request Button (Primary Solution) */}
+          <div className="bg-accent/10 border-2 border-accent rounded-sm p-6">
+            <h3 className="text-xl font-heading font-bold text-foreground mb-3">
+              🚀 Easiest Fix - Try This First!
+            </h3>
+            <p className="text-sm font-body text-foreground mb-4">
+              Click the button below to automatically trigger the Windows permission dialog.
+              This is the fastest way to grant microphone access.
+            </p>
+
+            <button
+              onClick={handleAutoRequest}
+              disabled={isRequesting}
+              className={`w-full px-6 py-4 font-heading font-bold text-lg border-2 border-foreground rounded-sm shadow-pop hover:shadow-pop-hover active:shadow-pop-active transition-all hover:-translate-y-0.5 active:translate-y-0 ${
+                isRequesting
+                  ? "bg-muted text-mutedForeground cursor-not-allowed"
+                  : requestStatus === "success"
+                  ? "bg-quaternary text-quaternaryForeground"
+                  : requestStatus === "error"
+                  ? "bg-destructive text-destructiveForeground"
+                  : "bg-accent text-accentForeground"
+              }`}
+            >
+              {isRequesting && "⏳ Requesting Permissions..."}
+              {!isRequesting && requestStatus === "success" && "✅ Permission Granted! Closing..."}
+              {!isRequesting && requestStatus === "error" && "❌ Failed - Try Manual Steps Below"}
+              {!isRequesting && requestStatus === "idle" && "🎤 Request Microphone Access"}
+            </button>
+
+            {requestStatus === "success" && (
+              <p className="mt-3 text-sm font-body text-quaternary text-center animate-popIn">
+                ✅ Success! You can now use the microphone. Click "Start Capture" to begin.
+              </p>
+            )}
+
+            {requestStatus === "error" && errorMessage && (
+              <p className="mt-3 text-xs font-body text-destructive bg-destructive/10 border border-destructive rounded-sm p-2">
+                Error: {errorMessage}
+              </p>
+            )}
+          </div>
+
+          {/* Manual Solution Steps (Fallback) */}
+          <div className="border-t-2 border-border pt-4">
+            <p className="text-sm font-body text-mutedForeground mb-4 text-center">
+              If the automatic request doesn't work, follow these manual steps:
             </p>
           </div>
 

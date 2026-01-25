@@ -41,3 +41,10 @@ tokio = { version = "1", features = ["full"] }
 # Date/Time
 chrono = { version = "0.4", features = ["serde"] }
 
+# Windows permissions (Windows-only)
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = [
+    "Media_Capture",
+    "Foundation",
+] }
+
