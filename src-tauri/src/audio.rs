@@ -172,10 +172,29 @@ fn audio_thread(
                 let device_name = device.name().unwrap_or_else(|_| "Unknown".to_string());
                 info!("Using input device: {}", device_name);
 
-                let stream_config = StreamConfig {
-                    channels: config.channels,
-                    sample_rate: SampleRate(config.sample_rate),
-                    buffer_size: cpal::BufferSize::Fixed(config.buffer_size as u32),
+                // Try to get the device's default/supported configuration
+                let stream_config = match device.default_input_config() {
+                    Ok(default_config) => {
+                        info!("Using device's default config: {} Hz, {} channels",
+                              default_config.sample_rate().0,
+                              default_config.channels());
+
+                        // Use device's native configuration
+                        StreamConfig {
+                            channels: default_config.channels(),
+                            sample_rate: default_config.sample_rate(),
+                            buffer_size: cpal::BufferSize::Default, // Let device decide buffer size
+                        }
+                    },
+                    Err(e) => {
+                        error!("Failed to get default config: {}, trying fallback", e);
+                        // Fallback to our desired config
+                        StreamConfig {
+                            channels: config.channels,
+                            sample_rate: SampleRate(config.sample_rate),
+                            buffer_size: cpal::BufferSize::Default,
+                        }
+                    }
                 };
 
                 let sender_clone = audio_sender.clone();
