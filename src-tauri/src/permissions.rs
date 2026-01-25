@@ -19,23 +19,18 @@ pub async fn request_microphone_permission() -> Result<bool, String> {
     ).map_err(|e| format!("Failed to set audio mode: {}", e))?;
 
     // This line triggers the Windows permission dialog!
-    match capture.InitializeAsync(&settings) {
-        Ok(async_op) => {
-            // Wait for user to grant/deny permission
-            match async_op {
-                Ok(_) => {
-                    log::info!("✅ Microphone permission granted!");
-                    Ok(true)
-                },
-                Err(e) => {
-                    log::error!("❌ Microphone permission denied: {}", e);
-                    Err(format!("Permission denied by user: {}", e))
-                }
-            }
+    let async_op = capture.InitializeAsync(&settings)
+        .map_err(|e| format!("Failed to initialize capture: {}", e))?;
+
+    // Wait for the async operation to complete
+    match async_op.get() {
+        Ok(_) => {
+            log::info!("✅ Microphone permission granted!");
+            Ok(true)
         },
         Err(e) => {
-            log::error!("Failed to request permissions: {}", e);
-            Err(format!("Failed to request permissions: {}", e))
+            log::error!("❌ Microphone permission denied: {}", e);
+            Err(format!("Permission denied by user: {}", e))
         }
     }
 }
