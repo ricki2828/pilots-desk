@@ -41,6 +41,6 @@ tokio = { version = "1", features = ["full"] }
 # Date/Time
 chrono = { version = "0.4", features = ["serde"] }
 
-# Whisper transcription - using latest version with better Windows support
-whisper-rs = { version = "0.15" }
+# Transcription using transcribe-rs (proven Windows compatibility, same as Handy app)
+transcribe-rs = { version = "0.2", features = ["whisper"] }
 

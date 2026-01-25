@@ -3,7 +3,7 @@ use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use whisper_rs::{WhisperContext, WhisperContextParameters, FullParams, SamplingStrategy};
+use transcribe_rs::{Transcriber, TranscriberConfig, whisper::WhisperModel};
 
 /// Whisper model configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,10 +34,10 @@ pub struct Transcript {
     pub is_final: bool,
 }
 
-/// Whisper engine using whisper-rs crate
+/// Whisper engine using transcribe-rs crate (proven Windows compatibility)
 pub struct WhisperEngine {
     config: WhisperConfig,
-    context: Option<Arc<Mutex<WhisperContext>>>,
+    transcriber: Option<Arc<Mutex<Transcriber>>>,
     audio_receiver: Option<Receiver<Vec<f32>>>,
     transcript_sender: Option<Sender<Transcript>>,
     transcript_receiver: Option<Receiver<Transcript>>,
@@ -50,7 +50,7 @@ impl WhisperEngine {
 
         Self {
             config,
-            context: None,
+            transcriber: None,
             audio_receiver: None,
             transcript_sender: Some(transcript_tx),
             transcript_receiver: Some(transcript_rx),
@@ -79,7 +79,7 @@ impl WhisperEngine {
         info!("Whisper engine stopped");
     }
 
-    /// Start Whisper processing
+    /// Start Whisper processing using transcribe-rs
     pub fn start(&mut self) -> Result<(), String> {
         if self.audio_receiver.is_none() {
             return Err("Audio receiver not set".to_string());
@@ -95,15 +95,22 @@ impl WhisperEngine {
 
         info!("Loading Whisper model from: {}", self.config.model_path);
 
-        // Load Whisper model
-        let ctx_params = WhisperContextParameters::default();
-        let ctx = WhisperContext::new_with_params(&self.config.model_path, ctx_params)
-            .map_err(|e| format!("Failed to load Whisper model: {:?}", e))?;
+        // Create transcribe-rs configuration
+        let transcriber_config = TranscriberConfig {
+            model_path: self.config.model_path.clone(),
+            language: Some(self.config.language.clone()),
+            num_threads: Some(self.config.num_threads as usize),
+            ..Default::default()
+        };
 
-        self.context = Some(Arc::new(Mutex::new(ctx)));
+        // Load Whisper model using transcribe-rs
+        let transcriber = Transcriber::new(WhisperModel, transcriber_config)
+            .map_err(|e| format!("Failed to load Whisper model with transcribe-rs: {:?}", e))?;
+
+        self.transcriber = Some(Arc::new(Mutex::new(transcriber)));
         *self.is_running.lock().unwrap() = true;
 
-        info!("Whisper model loaded successfully");
+        info!("Whisper model loaded successfully with transcribe-rs");
 
         // Start audio processing thread
         self.start_audio_thread();
@@ -115,13 +122,11 @@ impl WhisperEngine {
     fn start_audio_thread(&mut self) {
         let audio_rx = self.audio_receiver.take().unwrap();
         let transcript_tx = self.transcript_sender.clone().unwrap();
-        let context = self.context.clone().unwrap();
-        let language = self.config.language.clone();
-        let num_threads = self.config.num_threads;
+        let transcriber = self.transcriber.clone().unwrap();
         let is_running = self.is_running.clone();
 
         thread::spawn(move || {
-            info!("Whisper audio processing thread started");
+            info!("Whisper audio processing thread started (transcribe-rs)");
 
             let mut buffer: Vec<f32> = Vec::new();
             const CHUNK_SIZE: usize = 16000 * 3; // 3 seconds of audio at 16kHz
@@ -140,46 +145,28 @@ impl WhisperEngine {
                         if buffer.len() >= CHUNK_SIZE {
                             let chunk: Vec<f32> = buffer.drain(..CHUNK_SIZE).collect();
 
-                            // Transcribe using whisper-rs
-                            let mut ctx = context.lock().unwrap();
+                            // Transcribe using transcribe-rs
+                            let mut transcriber_guard = transcriber.lock().unwrap();
 
-                            // Create parameters
-                            let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
-                            params.set_language(Some(&language));
-                            params.set_n_threads(num_threads as i32);
-                            params.set_print_progress(false);
-                            params.set_print_special(false);
-                            params.set_print_realtime(false);
+                            match transcriber_guard.transcribe(&chunk) {
+                                Ok(result) => {
+                                    let text = result.text.trim().to_string();
 
-                            // Run transcription
-                            match ctx.full(params, &chunk) {
-                                Ok(_) => {
-                                    // Get number of segments
-                                    let num_segments = ctx.full_n_segments()
-                                        .unwrap_or(0);
+                                    if !text.is_empty() {
+                                        let transcript = Transcript {
+                                            text,
+                                            confidence: result.confidence.unwrap_or(0.85),
+                                            timestamp: chrono::Utc::now().timestamp() as f64,
+                                            is_final: true,
+                                        };
 
-                                    // Extract text from all segments
-                                    for i in 0..num_segments {
-                                        if let Ok(segment_text) = ctx.full_get_segment_text(i) {
-                                            let text = segment_text.trim().to_string();
-
-                                            if !text.is_empty() {
-                                                let transcript = Transcript {
-                                                    text,
-                                                    confidence: 0.85,
-                                                    timestamp: chrono::Utc::now().timestamp() as f64,
-                                                    is_final: true,
-                                                };
-
-                                                if let Err(e) = transcript_tx.try_send(transcript) {
-                                                    warn!("Failed to send transcript: {}", e);
-                                                }
-                                            }
+                                        if let Err(e) = transcript_tx.try_send(transcript) {
+                                            warn!("Failed to send transcript: {}", e);
                                         }
                                     }
                                 }
                                 Err(e) => {
-                                    error!("Transcription error: {:?}", e);
+                                    error!("Transcription error with transcribe-rs: {:?}", e);
                                 }
                             }
                         }
