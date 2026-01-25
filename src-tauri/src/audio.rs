@@ -123,13 +123,18 @@ impl AudioCapture {
         *self.is_capturing.lock().unwrap()
     }
 
-    /// Calculate RMS (Root Mean Square) for audio level
+    /// Calculate RMS (Root Mean Square) for audio level with automatic gain
     fn calculate_rms(samples: &[f32]) -> f32 {
         if samples.is_empty() {
             return 0.0;
         }
         let sum: f32 = samples.iter().map(|s| s * s).sum();
-        (sum / samples.len() as f32).sqrt()
+        let rms = (sum / samples.len() as f32).sqrt();
+
+        // Apply automatic gain: multiply by 10 to make levels more visible
+        // This is just for UI display, doesn't affect actual audio capture
+        // Cap at 1.0 (100%) to prevent overflow
+        (rms * 10.0).min(1.0)
     }
 }
 
