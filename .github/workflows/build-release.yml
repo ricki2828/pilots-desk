@@ -70,19 +70,44 @@ jobs:
 
       - name: Download Whisper model
         run: |
-          echo "Downloading Whisper small model..."
+          echo "Downloading Whisper small model (466MB)..."
           mkdir -p models
-          curl -L -o models/ggml-small.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin
-          echo "Model downloaded:"
+
+          # Download with retries and progress display
+          for i in 1 2 3; do
+            echo "Attempt $i of 3..."
+            if curl -L --max-time 600 --progress-bar -o models/ggml-small.bin \
+              https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin; then
+              echo "Download successful!"
+              break
+            else
+              echo "Download failed, retrying..."
+              rm -f models/ggml-small.bin
+              sleep 5
+            fi
+          done
+
+          # Verify download
+          if [ ! -f models/ggml-small.bin ]; then
+            echo "ERROR: Model download failed after 3 attempts"
+            exit 1
+          fi
+
+          echo "Model downloaded successfully:"
           ls -lh models/
         shell: bash
 
-      - name: Copy scripts for bundling
+      - name: Copy resources for bundling
         run: |
           echo "Copying scripts directory into src-tauri for bundling..."
           cp -r scripts src-tauri/scripts
           echo "Scripts copied:"
           ls -la src-tauri/scripts/
+
+          echo "Copying models directory into src-tauri for bundling..."
+          cp -r models src-tauri/models
+          echo "Models copied:"
+          ls -lh src-tauri/models/
         shell: bash
 
       - name: Build Tauri app
