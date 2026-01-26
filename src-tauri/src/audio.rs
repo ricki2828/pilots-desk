@@ -177,23 +177,81 @@ fn audio_thread(
                 let device_name = device.name().unwrap_or_else(|_| "Unknown".to_string());
                 info!("Using input device: {}", device_name);
 
-                // Force our desired configuration (16kHz) for Whisper compatibility
-                // This prevents sample rate mismatch that causes channel overflow
-                let stream_config = {
-                    info!("Forcing audio config: {} Hz, {} channels (required for Whisper)",
-                          config.sample_rate,
-                          config.channels);
+                // Try to query supported configurations
+                let supported_configs = match device.supported_input_configs() {
+                    Ok(configs) => configs.collect::<Vec<_>>(),
+                    Err(e) => {
+                        error!("Failed to query supported configs: {}", e);
+                        let _ = result_sender.send(Err(format!(
+                            "Failed to query microphone capabilities: {}.\n\
+                            This might indicate a driver issue. Try:\n\
+                            1. Updating your audio drivers\n\
+                            2. Restarting Windows\n\
+                            3. Testing with a different microphone", e
+                        )));
+                        continue;
+                    }
+                };
 
-                    StreamConfig {
-                        channels: config.channels,
-                        sample_rate: SampleRate(config.sample_rate),
-                        buffer_size: cpal::BufferSize::Default,
+                info!("Microphone '{}' supports {} config(s)", device_name, supported_configs.len());
+                for (i, config) in supported_configs.iter().enumerate() {
+                    info!("  Config {}: channels={}, min_rate={}, max_rate={}",
+                          i, config.channels(), config.min_sample_rate().0, config.max_sample_rate().0);
+                }
+
+                // Try to use 16kHz (Whisper's native rate), but fall back to device's default if not supported
+                let stream_config = {
+                    let desired_rate = SampleRate(config.sample_rate); // 16000 Hz
+
+                    // Check if 16kHz is supported
+                    let supports_16khz = supported_configs.iter().any(|c| {
+                        c.channels() == config.channels &&
+                        c.min_sample_rate() <= desired_rate &&
+                        c.max_sample_rate() >= desired_rate
+                    });
+
+                    if supports_16khz {
+                        info!("✅ Device supports 16kHz - using Whisper's native rate");
+                        StreamConfig {
+                            channels: config.channels,
+                            sample_rate: desired_rate,
+                            buffer_size: cpal::BufferSize::Default,
+                        }
+                    } else {
+                        // Fall back to device's default configuration
+                        warn!("⚠️  Device does NOT support 16kHz - using device's native rate");
+                        match device.default_input_config() {
+                            Ok(default_config) => {
+                                let native_rate = default_config.sample_rate();
+                                info!("📊 Using native sample rate: {} Hz (will need resampling for Whisper)", native_rate.0);
+
+                                StreamConfig {
+                                    channels: default_config.channels(),
+                                    sample_rate: native_rate,
+                                    buffer_size: cpal::BufferSize::Default,
+                                }
+                            }
+                            Err(e) => {
+                                error!("Failed to get default config: {}", e);
+                                let _ = result_sender.send(Err(format!(
+                                    "Microphone '{}' does not support 16kHz and failed to get default config: {}.\n\
+                                    Supported rates: {}. Try selecting a different microphone.",
+                                    device_name, e,
+                                    supported_configs.iter()
+                                        .map(|c| format!("{}-{} Hz", c.min_sample_rate().0, c.max_sample_rate().0))
+                                        .collect::<Vec<_>>()
+                                        .join(", ")
+                                )));
+                                continue;
+                            }
+                        }
                     }
                 };
 
                 let sender_clone = audio_sender.clone();
                 let levels_clone = current_levels.clone();
                 let is_capturing_clone = is_capturing.clone();
+                let actual_sample_rate = stream_config.sample_rate.0;
 
                 match device.build_input_stream(
                     &stream_config,
@@ -207,6 +265,8 @@ fn audio_thread(
                                 current.combined_level = mic_level;
                             }
 
+                            // TODO: If actual_sample_rate != 16000, resample audio here
+                            // For now, just pass through as-is (will cause issues with Whisper if rate != 16kHz)
                             let samples: Vec<f32> = data.to_vec();
                             if let Err(e) = sender_clone.try_send(samples) {
                                 warn!("Failed to send audio samples: {}", e);
@@ -229,7 +289,17 @@ fn audio_thread(
                             continue;
                         }
                         mic_stream = Some(stream);
-                        info!("Audio capture started successfully on device: {}", device_name);
+                        info!("✅ Audio capture started successfully");
+                        info!("   Device: {}", device_name);
+                        info!("   Sample rate: {} Hz", actual_sample_rate);
+                        info!("   Channels: {}", stream_config.channels);
+
+                        if actual_sample_rate != 16000 {
+                            warn!("⚠️  SAMPLE RATE MISMATCH: Using {} Hz instead of 16000 Hz", actual_sample_rate);
+                            warn!("   Transcription may not work correctly without resampling");
+                            warn!("   Consider using a different microphone that supports 16kHz");
+                        }
+
                         let _ = result_sender.send(Ok(()));
                     }
                     Err(e) => {
