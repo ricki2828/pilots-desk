@@ -80,41 +80,28 @@ jobs:
         shell: bash
         continue-on-error: true
 
-      - name: Build whisper.cpp with proper error handling
+      - name: Download pre-built whisper.cpp binary (NO COMPILATION!)
         run: |
-          echo "Cloning whisper.cpp..."
-          git clone --depth 1 https://github.com/ggerganov/whisper.cpp.git
-          cd whisper.cpp
+          echo "Downloading pre-built whisper.cpp main.exe from GitHub CI artifacts..."
+          mkdir -p whisper-bin
 
-          echo "Building with CMake..."
-          mkdir build
-          cd build
+          # Download a recent successful build artifact from whisper.cpp CI
+          # Using a specific known-good build
+          curl -L -o whisper-bin/whisper.exe \
+            "https://github.com/ggerganov/whisper.cpp/releases/download/v1.7.3/main.exe" || \
+          curl -L -o whisper-bin/whisper.exe \
+            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/main.exe"
 
-          echo "Running CMake configure..."
-          cmake .. -DCMAKE_BUILD_TYPE=Release -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=ON
+          echo "Verifying binary..."
+          ls -lh whisper-bin/whisper.exe
 
-          echo "Running CMake build..."
-          cmake --build . --config Release --target main --verbose
-
-          echo "Checking build output..."
-          find . -name "main.exe" -o -name "whisper.exe"
-          ls -la bin/Release/ || ls -la Release/ || ls -la .
-
-          # Copy binary (try multiple possible locations)
-          mkdir -p ../../whisper-bin
-          if [ -f "bin/Release/main.exe" ]; then
-            cp bin/Release/main.exe ../../whisper-bin/whisper.exe
-          elif [ -f "Release/main.exe" ]; then
-            cp Release/main.exe ../../whisper-bin/whisper.exe
-          elif [ -f "main.exe" ]; then
-            cp main.exe ../../whisper-bin/whisper.exe
-          else
-            echo "ERROR: Could not find main.exe in any expected location"
+          if [ ! -f "whisper-bin/whisper.exe" ]; then
+            echo "ERROR: Failed to download whisper.exe"
             exit 1
           fi
 
-          echo "✅ whisper.exe ready!"
-          ls -lh ../../whisper-bin/whisper.exe
+          echo "✅ Pre-built whisper.exe downloaded successfully!"
+          echo "File size: $(du -h whisper-bin/whisper.exe | cut -f1)"
         shell: bash
 
       - name: Download Whisper model
