@@ -80,26 +80,41 @@ jobs:
         shell: bash
         continue-on-error: true
 
-      - name: Build whisper.cpp from source
+      - name: Build whisper.cpp with proper error handling
         run: |
           echo "Cloning whisper.cpp..."
           git clone --depth 1 https://github.com/ggerganov/whisper.cpp.git
           cd whisper.cpp
 
-          echo "Compiling whisper.cpp with CMake..."
+          echo "Building with CMake..."
           mkdir build
           cd build
-          cmake ..
-          cmake --build . --config Release
 
-          echo "Built binaries:"
-          ls -la bin/Release/
+          echo "Running CMake configure..."
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=ON
 
-          # Copy main.exe to our project
+          echo "Running CMake build..."
+          cmake --build . --config Release --target main --verbose
+
+          echo "Checking build output..."
+          find . -name "main.exe" -o -name "whisper.exe"
+          ls -la bin/Release/ || ls -la Release/ || ls -la .
+
+          # Copy binary (try multiple possible locations)
           mkdir -p ../../whisper-bin
-          cp bin/Release/main.exe ../../whisper-bin/whisper.exe
+          if [ -f "bin/Release/main.exe" ]; then
+            cp bin/Release/main.exe ../../whisper-bin/whisper.exe
+          elif [ -f "Release/main.exe" ]; then
+            cp Release/main.exe ../../whisper-bin/whisper.exe
+          elif [ -f "main.exe" ]; then
+            cp main.exe ../../whisper-bin/whisper.exe
+          else
+            echo "ERROR: Could not find main.exe in any expected location"
+            exit 1
+          fi
 
-          echo "whisper.exe ready at whisper-bin/whisper.exe"
+          echo "✅ whisper.exe ready!"
+          ls -lh ../../whisper-bin/whisper.exe
         shell: bash
 
       - name: Download Whisper model
