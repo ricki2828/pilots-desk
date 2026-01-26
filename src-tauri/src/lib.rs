@@ -1,3 +1,4 @@
+// Pilot's Desk v0.6.4 - Audio channel overflow fix
 mod audio;
 mod storage;
 mod whisper_native;
