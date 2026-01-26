@@ -82,25 +82,31 @@ jobs:
 
       - name: Download pre-built whisper.cpp binary (NO COMPILATION!)
         run: |
-          echo "Downloading pre-built whisper.cpp main.exe from GitHub CI artifacts..."
+          echo "Downloading pre-built whisper.cpp from community Windows builds..."
           mkdir -p whisper-bin
 
-          # Download a recent successful build artifact from whisper.cpp CI
-          # Using a specific known-good build
-          curl -L -o whisper-bin/whisper.exe \
-            "https://github.com/ggerganov/whisper.cpp/releases/download/v1.7.3/main.exe" || \
-          curl -L -o whisper-bin/whisper.exe \
-            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/main.exe"
+          # Download from regstuff/whisper.cpp_windows (pre-built Windows executables)
+          # This is a community repo specifically for Windows .exe files
+          curl -L -o whisper-temp.zip \
+            "https://github.com/regstuff/whisper.cpp_windows/releases/latest/download/whisper-cpp-windows.zip"
+
+          echo "Extracting whisper.exe..."
+          unzip -o whisper-temp.zip -d whisper-temp
+
+          # Find and copy the main executable (might be named main.exe or whisper.exe)
+          find whisper-temp -name "main.exe" -o -name "whisper.exe" | head -1 | xargs -I {} cp {} whisper-bin/whisper.exe
+
+          rm -rf whisper-temp whisper-temp.zip
 
           echo "Verifying binary..."
           ls -lh whisper-bin/whisper.exe
 
           if [ ! -f "whisper-bin/whisper.exe" ]; then
-            echo "ERROR: Failed to download whisper.exe"
+            echo "ERROR: Failed to extract whisper.exe"
             exit 1
           fi
 
-          echo "✅ Pre-built whisper.exe downloaded successfully!"
+          echo "✅ Pre-built whisper.exe ready!"
           echo "File size: $(du -h whisper-bin/whisper.exe | cut -f1)"
         shell: bash
 
