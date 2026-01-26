@@ -1,4 +1,4 @@
-// Pilot's Desk v0.6.4 - Audio channel overflow fix
+// Pilot's Desk v0.6.4 - Audio channel overflow fix (buffer: 100→2000, sample rate: 16kHz forced)
 mod audio;
 mod storage;
 mod whisper_native;
