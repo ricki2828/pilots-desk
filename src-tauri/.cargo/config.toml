@@ -1,0 +1,7 @@
+# Cargo configuration for Windows builds
+# Explicitly use LLD linker to avoid Git's link.exe conflict
+
+[target.x86_64-pc-windows-msvc]
+# Use lld-link (Rust's LLVM linker in link.exe-compatible mode)
+# This is included with the Rust toolchain and doesn't search PATH
+linker = "lld-link"

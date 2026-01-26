@@ -30,16 +30,7 @@ jobs:
       # Temporarily skip Vulkan SDK - build with CPU-only whisper-rs first
       # We'll add GPU acceleration back once basic compilation works
 
-      - name: Fix linker PATH (ensure MSVC link.exe is found before Git's)
-        run: |
-          # Remove Git's bin from PATH to avoid link.exe conflict
-          $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -notlike '*Git\usr\bin*' }) -join ';'
-          echo "PATH=$env:PATH" >> $env:GITHUB_ENV
-
-          # Verify correct linker
-          Write-Host "Checking which link.exe will be used:"
-          Get-Command link.exe | Select-Object -First 1
-        shell: pwsh
+      # Linker configured via src-tauri/.cargo/config.toml (uses lld-link to avoid Git conflict)
 
       # Temporarily disabled - uses deprecated actions/cache v2
       # - name: Rust cache
