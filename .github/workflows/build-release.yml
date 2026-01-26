@@ -27,8 +27,25 @@ jobs:
         with:
           toolchain: stable
 
-      # Temporarily skip Vulkan SDK - build with CPU-only whisper-rs first
-      # We'll add GPU acceleration back once basic compilation works
+      - name: Install Vulkan SDK components (required for whisper-rs build)
+        run: |
+          Write-Host "Installing Vulkan SDK via winget (fast, no cache issues)..."
+
+          # Try winget first (pre-installed on GitHub runners)
+          winget install --id=KhronosGroup.VulkanSDK --version=1.3.290.0 --silent --accept-package-agreements --accept-source-agreements
+
+          # Set environment variable
+          $sdkPath = "C:\VulkanSDK\1.3.290.0"
+          if (Test-Path $sdkPath) {
+            Write-Host "✅ Vulkan SDK installed at: $sdkPath"
+            echo "VULKAN_SDK=$sdkPath" >> $env:GITHUB_ENV
+            echo "VK_SDK_PATH=$sdkPath" >> $env:GITHUB_ENV
+          } else {
+            Write-Host "⚠️  Installation path not found, checking alternatives..."
+            Get-ChildItem "C:\VulkanSDK\" -ErrorAction SilentlyContinue
+          }
+        shell: pwsh
+        timeout-minutes: 10
 
       # Linker configured via src-tauri/.cargo/config.toml (uses lld-link to avoid Git conflict)
 
