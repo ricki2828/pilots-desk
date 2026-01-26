@@ -42,10 +42,12 @@ tokio = { version = "1", features = ["full"] }
 chrono = { version = "0.4", features = ["serde"] }
 
 # Whisper transcription using Rust bindings (Handy's proven approach)
-# Requires Vulkan SDK at build time, but NOT at runtime
+# Temporarily using CPU-only build to bypass Vulkan SDK installation issues
+# TODO: Re-enable Vulkan GPU acceleration once SDK installation is resolved
 transcribe-rs = { version = "0.2", features = ["whisper"] }
 
-# Platform-specific GPU acceleration
+# Platform-specific dependencies
 [target.'cfg(windows)'.dependencies]
-whisper-rs = { version = "0.13", features = ["vulkan"] }
+# CPU-only for now - will add features = ["vulkan"] later for GPU acceleration
+whisper-rs = { version = "0.13" }
 
