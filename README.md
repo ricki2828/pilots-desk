@@ -223,3 +223,7 @@ See **[docs/WINDOWS_TESTING.md](docs/WINDOWS_TESTING.md)** for comprehensive tes
 **Next Milestone**: Windows testing + Phase 3 (Scoring & Coaching)
 
 Built with ❤️ for BPO agents worldwide
+
+---
+
+<!-- Build trigger: Audio channel overflow fix (v0.6.4) -->
