@@ -1,0 +1,15 @@
+name: Minimal Test
+
+on:
+  push:
+    tags:
+      - 'test-*'
+
+jobs:
+  test:
+    name: Minimal Test Job
+    runs-on: windows-latest
+
+    steps:
+      - name: Echo test
+        run: echo "Hello from Windows runner"
