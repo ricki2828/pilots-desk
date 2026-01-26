@@ -9,12 +9,12 @@ use log::info;
 use script::{ScriptEngine, ScriptNode};
 use std::sync::Mutex;
 use tauri::{Emitter, Manager, State};
-use whisper_native::{Transcript, WhisperConfig, WhisperEngine};
+use whisper_native::{Transcript, WhisperConfig, WhisperEngineWrapper};
 
 /// Application state
 pub struct AppState {
     audio_capture: Mutex<Option<AudioCapture>>,
-    whisper_engine: Mutex<Option<WhisperEngine>>,
+    whisper_engine: Mutex<Option<WhisperEngineWrapper>>,
     script_engine: Mutex<Option<ScriptEngine>>,
 }
 
@@ -143,7 +143,7 @@ async fn init_whisper(
         ..WhisperConfig::default()
     };
 
-    let engine = WhisperEngine::new(config);
+    let engine = WhisperEngineWrapper::new(config);
 
     let mut whisper_guard = state.whisper_engine.lock().unwrap();
     *whisper_guard = Some(engine);

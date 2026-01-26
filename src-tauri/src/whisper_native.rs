@@ -3,7 +3,11 @@ use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use transcribe_rs::{Transcriber, TranscriberConfig, whisper::WhisperModel};
+use std::path::PathBuf;
+use transcribe_rs::{
+    engines::whisper::{WhisperEngine, WhisperInferenceParams},
+    TranscriptionEngine,
+};
 
 /// Whisper model configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,22 +39,22 @@ pub struct Transcript {
 }
 
 /// Whisper engine using transcribe-rs crate (proven Windows compatibility)
-pub struct WhisperEngine {
+pub struct WhisperEngineWrapper {
     config: WhisperConfig,
-    transcriber: Option<Arc<Mutex<Transcriber>>>,
+    engine: Option<Arc<Mutex<WhisperEngine>>>,
     audio_receiver: Option<Receiver<Vec<f32>>>,
     transcript_sender: Option<Sender<Transcript>>,
     transcript_receiver: Option<Receiver<Transcript>>,
     is_running: Arc<Mutex<bool>>,
 }
 
-impl WhisperEngine {
+impl WhisperEngineWrapper {
     pub fn new(config: WhisperConfig) -> Self {
         let (transcript_tx, transcript_rx) = crossbeam_channel::bounded(100);
 
         Self {
             config,
-            transcriber: None,
+            engine: None,
             audio_receiver: None,
             transcript_sender: Some(transcript_tx),
             transcript_receiver: Some(transcript_rx),
@@ -95,19 +99,14 @@ impl WhisperEngine {
 
         info!("Loading Whisper model from: {}", self.config.model_path);
 
-        // Create transcribe-rs configuration
-        let transcriber_config = TranscriberConfig {
-            model_path: self.config.model_path.clone(),
-            language: Some(self.config.language.clone()),
-            num_threads: Some(self.config.num_threads as usize),
-            ..Default::default()
-        };
+        // Create and load Whisper engine
+        let mut engine = WhisperEngine::new();
+        let model_path = PathBuf::from(&self.config.model_path);
 
-        // Load Whisper model using transcribe-rs
-        let transcriber = Transcriber::new(WhisperModel, transcriber_config)
+        engine.load_model(&model_path)
             .map_err(|e| format!("Failed to load Whisper model with transcribe-rs: {:?}", e))?;
 
-        self.transcriber = Some(Arc::new(Mutex::new(transcriber)));
+        self.engine = Some(Arc::new(Mutex::new(engine)));
         *self.is_running.lock().unwrap() = true;
 
         info!("Whisper model loaded successfully with transcribe-rs");
@@ -122,7 +121,8 @@ impl WhisperEngine {
     fn start_audio_thread(&mut self) {
         let audio_rx = self.audio_receiver.take().unwrap();
         let transcript_tx = self.transcript_sender.clone().unwrap();
-        let transcriber = self.transcriber.clone().unwrap();
+        let engine = self.engine.clone().unwrap();
+        let language = self.config.language.clone();
         let is_running = self.is_running.clone();
 
         thread::spawn(move || {
@@ -146,16 +146,22 @@ impl WhisperEngine {
                             let chunk: Vec<f32> = buffer.drain(..CHUNK_SIZE).collect();
 
                             // Transcribe using transcribe-rs
-                            let mut transcriber_guard = transcriber.lock().unwrap();
+                            let mut engine_guard = engine.lock().unwrap();
 
-                            match transcriber_guard.transcribe(&chunk) {
+                            // Create inference params with language
+                            let params = WhisperInferenceParams {
+                                language: Some(language.clone()),
+                                ..Default::default()
+                            };
+
+                            match engine_guard.transcribe_samples(chunk, Some(params)) {
                                 Ok(result) => {
                                     let text = result.text.trim().to_string();
 
                                     if !text.is_empty() {
                                         let transcript = Transcript {
                                             text,
-                                            confidence: result.confidence.unwrap_or(0.85),
+                                            confidence: 0.85, // transcribe-rs doesn't return confidence
                                             timestamp: chrono::Utc::now().timestamp() as f64,
                                             is_final: true,
                                         };
