@@ -138,28 +138,8 @@ async fn init_whisper(
         ));
     }
 
-    // Resolve the bundled whisper.exe binary
-    let whisper_bin_path = app_handle
-        .path()
-        .resolve("whisper-bin/whisper.exe", tauri::path::BaseDirectory::Resource)
-        .map_err(|e| format!("Failed to resolve whisper binary path: {}", e))?
-        .to_string_lossy()
-        .to_string();
-
-    info!("Whisper binary path resolved to: {}", whisper_bin_path);
-
-    // Check if binary exists
-    if !std::path::Path::new(&whisper_bin_path).exists() {
-        return Err(format!(
-            "Whisper binary not found at: {}\n\
-            The whisper.exe file may not have been bundled correctly.",
-            whisper_bin_path
-        ));
-    }
-
     let config = WhisperConfig {
         model_path,
-        whisper_bin_path,
         ..WhisperConfig::default()
     };
 

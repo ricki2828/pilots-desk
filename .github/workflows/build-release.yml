@@ -24,17 +24,20 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Setup MSVC environment (for whisper.cpp compilation)
+      - name: Install Vulkan SDK (REQUIRED for transcribe-rs/whisper-rs)
+        uses: humbletim/install-vulkan-sdk@v1.1.1
+        with:
+          version: 1.4.309.0
+          cache: true
+
+      - name: Setup MSVC environment
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Verify build tools
+      - name: Set environment variables for whisper-rs build
         run: |
-          echo "CMake version:"
-          cmake --version
-          echo "MSVC compiler:"
-          cl.exe
-        shell: cmd
-        continue-on-error: true
+          echo "WHISPER_DONT_GENERATE_BINDINGS=1" >> $GITHUB_ENV
+          echo "✅ Build environment configured for transcribe-rs"
+        shell: bash
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -80,36 +83,6 @@ jobs:
         shell: bash
         continue-on-error: true
 
-      - name: Download pre-built whisper.cpp binary (NO COMPILATION!)
-        run: |
-          echo "Downloading pre-built whisper.cpp from community Windows builds..."
-          mkdir -p whisper-bin
-
-          # Download from regstuff/whisper.cpp_windows (pre-built Windows executables)
-          # This is a community repo specifically for Windows .exe files
-          curl -L -o whisper-temp.zip \
-            "https://github.com/regstuff/whisper.cpp_windows/releases/latest/download/whisper-cpp-windows.zip"
-
-          echo "Extracting whisper.exe..."
-          unzip -o whisper-temp.zip -d whisper-temp
-
-          # Find and copy the main executable (might be named main.exe or whisper.exe)
-          find whisper-temp -name "main.exe" -o -name "whisper.exe" | head -1 | xargs -I {} cp {} whisper-bin/whisper.exe
-
-          rm -rf whisper-temp whisper-temp.zip
-
-          echo "Verifying binary..."
-          ls -lh whisper-bin/whisper.exe
-
-          if [ ! -f "whisper-bin/whisper.exe" ]; then
-            echo "ERROR: Failed to extract whisper.exe"
-            exit 1
-          fi
-
-          echo "✅ Pre-built whisper.exe ready!"
-          echo "File size: $(du -h whisper-bin/whisper.exe | cut -f1)"
-        shell: bash
-
       - name: Download Whisper model
         run: |
           echo "Downloading Whisper small model (466MB)..."
@@ -151,10 +124,7 @@ jobs:
           echo "Models copied:"
           ls -la src-tauri/models/
 
-          echo "Copying whisper.cpp binary into src-tauri for bundling..."
-          cp -r whisper-bin src-tauri/whisper-bin
-          echo "Whisper binary copied:"
-          ls -la src-tauri/whisper-bin/
+          echo "✅ No external binaries needed - whisper-rs compiles into Tauri binary"
           ls -lh src-tauri/models/
         shell: bash
 

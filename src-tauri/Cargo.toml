@@ -41,7 +41,11 @@ tokio = { version = "1", features = ["full"] }
 # Date/Time
 chrono = { version = "0.4", features = ["serde"] }
 
-# Whisper transcription via external process (no compilation issues!)
-# Using whisper.cpp binary bundled with app
-hound = "3.5"  # WAV file writing for whisper.cpp input
+# Whisper transcription using Rust bindings (Handy's proven approach)
+# Requires Vulkan SDK at build time, but NOT at runtime
+transcribe-rs = { version = "0.2", features = ["whisper"] }
+
+# Platform-specific GPU acceleration
+[target.'cfg(windows)'.dependencies]
+whisper-rs = { version = "0.13", features = ["vulkan"] }
 
