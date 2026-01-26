@@ -41,6 +41,7 @@ tokio = { version = "1", features = ["full"] }
 # Date/Time
 chrono = { version = "0.4", features = ["serde"] }
 
-# Transcription using transcribe-rs (proven Windows compatibility, same as Handy app)
-transcribe-rs = { version = "0.2", features = ["whisper"] }
+# Whisper transcription via external process (no compilation issues!)
+# Using whisper.cpp binary bundled with app
+hound = "3.5"  # WAV file writing for whisper.cpp input
 

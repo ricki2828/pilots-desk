@@ -24,21 +24,8 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Install Vulkan SDK (required for transcribe-rs)
-        uses: humbletim/install-vulkan-sdk@v1.2
-        with:
-          version: 1.4.309.0
-          cache: true
-
-      - name: Setup MSVC environment
+      - name: Setup MSVC environment (for whisper.cpp compilation)
         uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Setup Clang/LLVM for whisper-rs
-        run: |
-          echo "Setting LIBCLANG_PATH for whisper-rs compilation..."
-          echo "LIBCLANG_PATH=C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\Llvm\x64\bin" >> $GITHUB_ENV
-          echo "✅ LIBCLANG_PATH configured"
-        shell: bash
 
       - name: Verify build tools
         run: |
@@ -46,8 +33,6 @@ jobs:
           cmake --version
           echo "MSVC compiler:"
           cl.exe
-          echo "Clang path:"
-          echo %LIBCLANG_PATH%
         shell: cmd
         continue-on-error: true
 
@@ -95,6 +80,28 @@ jobs:
         shell: bash
         continue-on-error: true
 
+      - name: Build whisper.cpp from source
+        run: |
+          echo "Cloning whisper.cpp..."
+          git clone --depth 1 https://github.com/ggerganov/whisper.cpp.git
+          cd whisper.cpp
+
+          echo "Compiling whisper.cpp with CMake..."
+          mkdir build
+          cd build
+          cmake ..
+          cmake --build . --config Release
+
+          echo "Built binaries:"
+          ls -la bin/Release/
+
+          # Copy main.exe to our project
+          mkdir -p ../../whisper-bin
+          cp bin/Release/main.exe ../../whisper-bin/whisper.exe
+
+          echo "whisper.exe ready at whisper-bin/whisper.exe"
+        shell: bash
+
       - name: Download Whisper model
         run: |
           echo "Downloading Whisper small model (466MB)..."
@@ -134,6 +141,12 @@ jobs:
           echo "Copying models directory into src-tauri for bundling..."
           cp -r models src-tauri/models
           echo "Models copied:"
+          ls -la src-tauri/models/
+
+          echo "Copying whisper.cpp binary into src-tauri for bundling..."
+          cp -r whisper-bin src-tauri/whisper-bin
+          echo "Whisper binary copied:"
+          ls -la src-tauri/whisper-bin/
           ls -lh src-tauri/models/
         shell: bash
 
