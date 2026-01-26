@@ -50,7 +50,7 @@ pub struct WhisperEngineWrapper {
 
 impl WhisperEngineWrapper {
     pub fn new(config: WhisperConfig) -> Self {
-        let (transcript_tx, transcript_rx) = crossbeam_channel::bounded(100);
+        let (transcript_tx, transcript_rx) = crossbeam_channel::bounded(500);
 
         Self {
             config,
@@ -130,7 +130,9 @@ impl WhisperEngineWrapper {
             info!("🎤 Whisper audio processing thread started (transcribe-rs + Vulkan GPU)");
 
             let mut buffer: Vec<f32> = Vec::new();
-            const CHUNK_SIZE: usize = 16000 * 3; // 3 seconds of audio at 16kHz
+            // Process audio in 3-second chunks at 16kHz
+            // IMPORTANT: Audio capture MUST be configured for 16kHz (see audio.rs)
+            const CHUNK_SIZE: usize = 16000 * 3; // 3 seconds of audio at 16kHz = 48,000 samples
 
             loop {
                 if !*is_running.lock().unwrap() {

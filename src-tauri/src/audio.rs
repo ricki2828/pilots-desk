@@ -49,7 +49,7 @@ pub struct AudioCapture {
 impl AudioCapture {
     pub fn new(config: AudioConfig) -> Self {
         let (cmd_sender, cmd_receiver) = unbounded::<AudioCommand>();
-        let (audio_sender, audio_receiver) = bounded(100);
+        let (audio_sender, audio_receiver) = bounded(2000);
 
         let is_capturing = Arc::new(Mutex::new(false));
         let current_levels = Arc::new(Mutex::new(AudioLevels {
@@ -177,28 +177,17 @@ fn audio_thread(
                 let device_name = device.name().unwrap_or_else(|_| "Unknown".to_string());
                 info!("Using input device: {}", device_name);
 
-                // Try to get the device's default/supported configuration
-                let stream_config = match device.default_input_config() {
-                    Ok(default_config) => {
-                        info!("Using device's default config: {} Hz, {} channels",
-                              default_config.sample_rate().0,
-                              default_config.channels());
+                // Force our desired configuration (16kHz) for Whisper compatibility
+                // This prevents sample rate mismatch that causes channel overflow
+                let stream_config = {
+                    info!("Forcing audio config: {} Hz, {} channels (required for Whisper)",
+                          config.sample_rate,
+                          config.channels);
 
-                        // Use device's native configuration
-                        StreamConfig {
-                            channels: default_config.channels(),
-                            sample_rate: default_config.sample_rate(),
-                            buffer_size: cpal::BufferSize::Default, // Let device decide buffer size
-                        }
-                    },
-                    Err(e) => {
-                        error!("Failed to get default config: {}, trying fallback", e);
-                        // Fallback to our desired config
-                        StreamConfig {
-                            channels: config.channels,
-                            sample_rate: SampleRate(config.sample_rate),
-                            buffer_size: cpal::BufferSize::Default,
-                        }
+                    StreamConfig {
+                        channels: config.channels,
+                        sample_rate: SampleRate(config.sample_rate),
+                        buffer_size: cpal::BufferSize::Default,
                     }
                 };
 
