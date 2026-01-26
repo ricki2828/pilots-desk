@@ -28,16 +28,17 @@ jobs:
         uses: humbletim/install-vulkan-sdk@v1.1.1
         with:
           version: 1.3.290.0
-          cache: true
+          cache: false
 
       - name: Setup MSVC environment
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: './src-tauri -> target'
-          key: v0.1.0-thread-safe
+      # Temporarily disabled - uses deprecated actions/cache v2
+      # - name: Rust cache
+      #   uses: swatinem/rust-cache@v2
+      #   with:
+      #     workspaces: './src-tauri -> target'
+      #     key: v0.1.0-thread-safe
 
       - name: Verify checkout
         run: |
