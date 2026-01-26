@@ -24,6 +24,12 @@ jobs:
         with:
           toolchain: stable
 
+      - name: Install Vulkan SDK (required for transcribe-rs)
+        uses: humbletim/install-vulkan-sdk@v1.2
+        with:
+          version: 1.4.309.0
+          cache: true
+
       - name: Setup MSVC environment
         uses: ilammy/msvc-dev-cmd@v1
 
