@@ -24,11 +24,25 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Install Vulkan SDK
-        uses: humbletim/install-vulkan-sdk@v1.1.1
-        with:
-          version: 1.3.290.0
-          cache: false
+      - name: Install Vulkan SDK (manual - avoid deprecated cache)
+        run: |
+          $version = "1.3.290.0"
+          $url = "https://sdk.lunarg.com/sdk/download/$version/windows/VulkanSDK-$version-Installer.exe"
+          $installer = "$env:TEMP\VulkanSDK-Installer.exe"
+
+          Write-Host "Downloading Vulkan SDK $version..."
+          Invoke-WebRequest -Uri $url -OutFile $installer
+
+          Write-Host "Installing Vulkan SDK..."
+          Start-Process -FilePath $installer -ArgumentList "/S" -Wait
+
+          $sdkPath = "C:\VulkanSDK\$version"
+          Write-Host "Setting VULKAN_SDK=$sdkPath"
+          echo "VULKAN_SDK=$sdkPath" >> $env:GITHUB_ENV
+          echo "VK_SDK_PATH=$sdkPath" >> $env:GITHUB_ENV
+
+          Write-Host "Vulkan SDK installed successfully"
+        shell: pwsh
 
       - name: Setup MSVC environment
         uses: ilammy/msvc-dev-cmd@v1
