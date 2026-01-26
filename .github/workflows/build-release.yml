@@ -19,6 +19,9 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Setup MSVC environment (before Rust to fix PATH order)
+        uses: ilammy/msvc-dev-cmd@v1
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -27,8 +30,16 @@ jobs:
       # Temporarily skip Vulkan SDK - build with CPU-only whisper-rs first
       # We'll add GPU acceleration back once basic compilation works
 
-      - name: Setup MSVC environment
-        uses: ilammy/msvc-dev-cmd@v1
+      - name: Fix linker PATH (ensure MSVC link.exe is found before Git's)
+        run: |
+          # Remove Git's bin from PATH to avoid link.exe conflict
+          $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -notlike '*Git\usr\bin*' }) -join ';'
+          echo "PATH=$env:PATH" >> $env:GITHUB_ENV
+
+          # Verify correct linker
+          Write-Host "Checking which link.exe will be used:"
+          Get-Command link.exe | Select-Object -First 1
+        shell: pwsh
 
       # Temporarily disabled - uses deprecated actions/cache v2
       # - name: Rust cache
