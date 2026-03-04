@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { apiFetch, wsUrl } from '../lib/api';
 
 export interface ActiveCall {
   call_id: string;
@@ -37,8 +38,6 @@ interface UseActiveCallsWSResult {
   reconnect: () => void;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8006';
-
 export function useActiveCallsWS(clientId: string): UseActiveCallsWSResult {
   const [activeCalls, setActiveCalls] = useState<ActiveCall[]>([]);
   const [teamSummary, setTeamSummary] = useState<TeamSummary | null>(null);
@@ -46,13 +45,13 @@ export function useActiveCallsWS(clientId: string): UseActiveCallsWSResult {
   const [error, setError] = useState<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptsRef = useRef(0);
 
   const fetchTeamSummary = useCallback(async () => {
     try {
-      const response = await fetch(
-        `${API_URL}/api/analytics/supervisor/team-summary?client_id=${clientId}&days=7`
+      const response = await apiFetch(
+        `/api/analytics/supervisor/team-summary?client_id=${clientId}&days=7`
       );
       if (response.ok) {
         const data = await response.json();
@@ -68,8 +67,7 @@ export function useActiveCallsWS(clientId: string): UseActiveCallsWSResult {
       return;
     }
 
-    const wsUrl = API_URL.replace(/^http/, 'ws');
-    const ws = new WebSocket(`${wsUrl}/api/supervisor/ws/${clientId}`);
+    const ws = new WebSocket(wsUrl(`/api/supervisor/ws/${clientId}`));
 
     ws.onopen = () => {
       console.log('[SupervisorWS] Connected');

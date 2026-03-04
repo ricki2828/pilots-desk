@@ -1,7 +1,7 @@
 {
   "name": "pilots-desk",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.7.0",
   "type": "module",
   "description": "Voice-responsive sales assistance platform for BPO agents",
   "author": "CoSauce",

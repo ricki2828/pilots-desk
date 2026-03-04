@@ -10,6 +10,9 @@ python-multipart==0.0.20
 # Logging and monitoring
 structlog==24.4.0
 
-# For future database integration
-# sqlalchemy==2.0.36
-# alembic==1.14.0
+# Audio transcription
+deepgram-sdk==3.8.0
+aiofiles==24.1.0
+
+# Database
+sqlalchemy==2.0.36

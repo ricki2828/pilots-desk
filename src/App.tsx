@@ -1,9 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import ScriptViewer from "./components/ScriptViewer";
 import AudioSettings from "./components/AudioSettings";
 import PermissionsHelper from "./components/PermissionsHelper";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://91.98.79.241:8010";
+const API_KEY = "pilots-desk-api-key-2026";
 
 interface AudioLevels {
   mic_level: number;
@@ -16,6 +20,12 @@ interface Transcript {
   confidence: number;
   timestamp: number;
   is_final: boolean;
+}
+
+type PostCallStatus = "idle" | "uploading" | "analyzing" | "ready" | "error";
+
+function generateCallId(): string {
+  return crypto.randomUUID();
 }
 
 function App() {
@@ -33,6 +43,12 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showPermissionsHelp, setShowPermissionsHelp] = useState(false);
+
+  // Post-call state
+  const [callId, setCallId] = useState<string | null>(null);
+  const [postCallStatus, setPostCallStatus] = useState<PostCallStatus>("idle");
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const callStartTime = useRef<number | null>(null);
 
   // Initialize audio and whisper on mount
   useEffect(() => {
@@ -64,7 +80,7 @@ function App() {
       } catch (err) {
         console.error("Failed to get audio levels:", err);
       }
-    }, 100); // Update every 100ms for smooth visualization
+    }, 100);
 
     return () => clearInterval(interval);
   }, [isCapturing]);
@@ -97,7 +113,12 @@ function App() {
     try {
       setStatus("Starting capture...");
       const result = await invoke<string>("start_capture");
+      const newCallId = generateCallId();
+      setCallId(newCallId);
+      callStartTime.current = Date.now();
       setIsCapturing(true);
+      setPostCallStatus("idle");
+      setUploadError(null);
       setStatus(result);
       setError(null);
     } catch (err) {
@@ -106,9 +127,9 @@ function App() {
     }
   };
 
-  const handleStopCapture = async () => {
+  const handleEndCall = async () => {
     try {
-      setStatus("Stopping capture...");
+      setStatus("Ending call...");
 
       // Stop transcription first if running
       if (isTranscribing) {
@@ -118,15 +139,75 @@ function App() {
       const result = await invoke<string>("stop_capture");
       setIsCapturing(false);
       setStatus(result);
-      setAudioLevels({
-        mic_level: 0,
-        system_level: 0,
-        combined_level: 0,
-      });
+      setAudioLevels({ mic_level: 0, system_level: 0, combined_level: 0 });
       setError(null);
+
+      // Trigger post-call upload
+      await uploadCallData();
     } catch (err) {
       setError(err as string);
-      setStatus("Failed to stop capture");
+      setStatus("Failed to end call");
+    }
+  };
+
+  const uploadCallData = async () => {
+    if (!callId) return;
+
+    setPostCallStatus("uploading");
+    setUploadError(null);
+
+    try {
+      const fullTranscript = transcripts
+        .filter((t) => t.is_final)
+        .map((t) => t.text)
+        .join(" ");
+
+      const formData = new FormData();
+      formData.append("transcript", fullTranscript);
+      formData.append("call_duration_ms", String(Date.now() - (callStartTime.current || Date.now())));
+      formData.append("client_id", "SKY_TV_NZ");
+      formData.append("agent_id", "agent_demo_001");
+
+      const response = await fetch(`${API_URL}/api/calls/${callId}/end`, {
+        method: "POST",
+        headers: {
+          "X-API-Key": API_KEY,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+      }
+
+      setPostCallStatus("analyzing");
+
+      // Poll for analysis completion or just show ready after a short delay
+      // The backend processes asynchronously, so we show "analyzing" briefly
+      setTimeout(() => {
+        setPostCallStatus("ready");
+      }, 2000);
+    } catch (err) {
+      console.error("Upload failed:", err);
+      setUploadError(err instanceof Error ? err.message : String(err));
+      setPostCallStatus("error");
+    }
+  };
+
+  const handleStartNewCall = () => {
+    setCallId(null);
+    setPostCallStatus("idle");
+    setUploadError(null);
+    setTranscripts([]);
+    callStartTime.current = null;
+  };
+
+  const handleViewReport = async () => {
+    if (!callId) return;
+    try {
+      await openUrl(`${API_URL}/dashboard/calls/${callId}`);
+    } catch (err) {
+      console.error("Failed to open dashboard:", err);
     }
   };
 
@@ -185,10 +266,10 @@ function App() {
   };
 
   const getLevelColor = (level: number): string => {
-    if (level > 0.7) return "bg-secondary"; // Pink for high
-    if (level > 0.4) return "bg-tertiary"; // Yellow for medium
-    if (level > 0.1) return "bg-quaternary"; // Green for good
-    return "bg-muted"; // Muted for silent
+    if (level > 0.7) return "bg-secondary";
+    if (level > 0.4) return "bg-tertiary";
+    if (level > 0.1) return "bg-quaternary";
+    return "bg-muted";
   };
 
   const getLevelWidth = (level: number): string => {
@@ -200,6 +281,9 @@ function App() {
     return date.toLocaleTimeString();
   };
 
+  // Show post-call view when call has ended and upload is in progress/complete
+  const showPostCallView = !isCapturing && postCallStatus !== "idle" && callId;
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-6 py-8 max-w-[1920px]">
@@ -207,17 +291,17 @@ function App() {
         <div className="mb-8 animate-popIn flex items-center justify-between">
           <div>
             <h1 className="text-5xl font-heading font-bold mb-2 text-foreground">
-              Pilot's Desk 🎯
+              Pilot's Desk
             </h1>
             <p className="text-mutedForeground font-body text-lg">
-              Phase 2: Script Navigation + Voice Guidance
+              Call Assistant
             </p>
           </div>
           <button
             onClick={() => setShowSettings(true)}
             className="px-6 py-3 bg-muted border-2 border-foreground rounded-sm font-heading font-bold shadow-pop hover:shadow-pop-hover active:shadow-pop-active transition-all hover:-translate-y-0.5 active:translate-y-0"
           >
-            ⚙️ Settings
+            Settings
           </button>
         </div>
 
@@ -227,282 +311,363 @@ function App() {
             <ScriptViewer />
           </div>
 
-          {/* Right Column (30%): Audio Controls & Transcripts */}
+          {/* Right Column (30%): Audio Controls & Transcripts / Post-Call */}
           <div className="lg:col-span-3 space-y-6 overflow-y-auto">
-            {/* Status Card */}
-            <div className="card shadow-pop-soft">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-heading font-bold text-foreground">Status</h3>
-                <div className="flex items-center space-x-2 px-3 py-1.5 rounded-sm border-2 border-foreground bg-muted">
-                  <div
-                    className={`w-3 h-3 rounded-full ${
-                      isPaused
-                        ? "bg-tertiary"
-                        : isTranscribing
-                        ? "bg-quaternary animate-pulse"
-                        : isCapturing
-                        ? "bg-tertiary animate-pulse"
-                        : isInitialized
-                        ? "bg-tertiary"
-                        : "bg-mutedForeground"
-                    }`}
-                  />
-                  <span className="text-sm font-body font-semibold text-foreground">
-                    {isPaused
-                      ? "Paused"
-                      : isTranscribing
-                      ? "Live"
-                      : isCapturing
-                      ? "Recording"
-                      : isInitialized
-                      ? "Ready"
-                      : "Offline"}
-                  </span>
-                </div>
-              </div>
+            {showPostCallView ? (
+              /* Post-Call View */
+              <div className="card shadow-pop-soft">
+                <h3 className="text-xl font-heading font-bold text-foreground mb-6">
+                  Call Complete
+                </h3>
 
-              {error && (
-                <div className="text-sm font-body p-3 bg-secondary/20 border-2 border-secondary rounded-sm mb-3">
-                  {error}
-                </div>
-              )}
-
-              {/* Permissions Help Button */}
-              <button
-                onClick={() => setShowPermissionsHelp(true)}
-                className="w-full text-left bg-muted hover:bg-card border-2 border-border hover:border-foreground rounded-sm px-4 py-3 transition-all"
-              >
-                <p className="text-sm font-body font-semibold text-foreground">
-                  ❓ Need help with microphone permissions?
-                </p>
-                <p className="text-xs font-body text-mutedForeground mt-1">
-                  Click here for step-by-step instructions
-                </p>
-              </button>
-            </div>
-
-            {/* Audio Levels - PROMINENT */}
-            <div className={`card ${isCapturing ? 'shadow-pop-purple border-accent' : 'shadow-pop-soft'} transition-all`}>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-heading font-bold text-foreground">Audio Levels</h3>
-                {isCapturing && (
-                  <span className="px-3 py-1 bg-quaternary border-2 border-foreground rounded-sm text-xs font-heading font-bold animate-pulse">
-                    🎤 RECORDING
-                  </span>
-                )}
-              </div>
-
-              {!isCapturing && (
-                <div className="bg-tertiary/20 border-2 border-tertiary rounded-sm p-4 mb-4">
-                  <p className="text-sm font-body text-foreground text-center">
-                    <strong className="font-bold">Click "Start Capture"</strong> to begin recording audio
-                  </p>
-                </div>
-              )}
-
-              <div className="space-y-6">
-                {/* Microphone Level - BIG */}
-                <div>
-                  <div className="flex justify-between mb-3">
-                    <span className="text-foreground font-heading font-bold text-lg">🎤 Microphone</span>
-                    <span className={`font-mono text-2xl font-bold ${
-                      audioLevels.mic_level > 0.1 ? 'text-foreground' : 'text-mutedForeground'
-                    }`}>
-                      {(audioLevels.mic_level * 100).toFixed(0)}%
+                <div className="space-y-4">
+                  {/* Status indicator */}
+                  <div className="flex items-center gap-3 p-4 border-2 border-foreground rounded-sm bg-card">
+                    <div
+                      className={`w-4 h-4 rounded-full ${
+                        postCallStatus === "uploading"
+                          ? "bg-tertiary animate-pulse"
+                          : postCallStatus === "analyzing"
+                          ? "bg-accent animate-pulse"
+                          : postCallStatus === "ready"
+                          ? "bg-quaternary"
+                          : postCallStatus === "error"
+                          ? "bg-secondary"
+                          : "bg-mutedForeground"
+                      }`}
+                    />
+                    <span className="font-body font-semibold text-foreground">
+                      {postCallStatus === "uploading" && "Uploading call data..."}
+                      {postCallStatus === "analyzing" && "Analysis in progress..."}
+                      {postCallStatus === "ready" && "Report ready"}
+                      {postCallStatus === "error" && "Upload failed"}
                     </span>
                   </div>
-                  <div className="w-full bg-muted border-2 border-foreground rounded-sm h-8 overflow-hidden relative">
-                    <div
-                      className={`h-full transition-all duration-75 ${getLevelColor(
-                        audioLevels.mic_level
-                      )}`}
-                      style={{ width: getLevelWidth(audioLevels.mic_level) }}
-                    />
-                    {/* Visual notches for reference */}
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-1/4 h-full border-r border-foreground/20"></div>
-                      <div className="w-1/4 h-full border-r border-foreground/20"></div>
-                      <div className="w-1/4 h-full border-r border-foreground/20"></div>
-                    </div>
+
+                  {/* Call ID */}
+                  <div className="text-xs font-mono text-mutedForeground p-3 bg-muted border-2 border-border rounded-sm">
+                    Call ID: {callId}
                   </div>
-                  {audioLevels.mic_level === 0 && isCapturing && (
-                    <div className="mt-3 space-y-2">
-                      <p className="text-sm text-secondary font-body font-bold">
-                        ⚠️ No microphone input detected!
-                      </p>
+
+                  {/* Transcript count */}
+                  <div className="text-sm font-body text-mutedForeground">
+                    {transcripts.length} transcript segments recorded
+                  </div>
+
+                  {/* Error display */}
+                  {uploadError && (
+                    <div className="p-3 bg-secondary/20 border-2 border-secondary rounded-sm text-sm font-body text-foreground">
+                      {uploadError}
+                    </div>
+                  )}
+
+                  {/* Action buttons */}
+                  <div className="space-y-3 pt-4">
+                    {postCallStatus === "ready" && (
                       <button
-                        onClick={() => setShowPermissionsHelp(true)}
-                        className="w-full bg-secondary text-foreground border-2 border-foreground rounded-sm px-4 py-3 font-heading font-bold shadow-pop hover:shadow-pop-hover active:shadow-pop-active transition-all hover:-translate-y-0.5 active:translate-y-0 text-sm"
+                        onClick={handleViewReport}
+                        className="w-full bg-accent text-accentForeground border-2 border-foreground rounded-sm px-6 py-3 font-heading font-bold shadow-pop hover:shadow-pop-hover active:shadow-pop-active transition-all hover:-translate-y-0.5 active:translate-y-0"
                       >
-                        🔧 Fix Microphone Permissions
+                        View Report in Dashboard
                       </button>
+                    )}
+
+                    {postCallStatus === "error" && (
+                      <button
+                        onClick={uploadCallData}
+                        className="w-full bg-tertiary text-foreground border-2 border-foreground rounded-sm px-6 py-3 font-heading font-bold shadow-pop hover:shadow-pop-hover active:shadow-pop-active transition-all hover:-translate-y-0.5 active:translate-y-0"
+                      >
+                        Retry Upload
+                      </button>
+                    )}
+
+                    <button
+                      onClick={handleStartNewCall}
+                      className="w-full bg-quaternary text-foreground border-2 border-foreground rounded-sm px-6 py-3 font-heading font-bold shadow-pop hover:shadow-pop-hover active:shadow-pop-active transition-all hover:-translate-y-0.5 active:translate-y-0"
+                    >
+                      Start New Call
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Active Call / Pre-Call View */
+              <>
+                {/* Status Card */}
+                <div className="card shadow-pop-soft">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-heading font-bold text-foreground">Status</h3>
+                    <div className="flex items-center space-x-2 px-3 py-1.5 rounded-sm border-2 border-foreground bg-muted">
+                      <div
+                        className={`w-3 h-3 rounded-full ${
+                          isPaused
+                            ? "bg-tertiary"
+                            : isTranscribing
+                            ? "bg-quaternary animate-pulse"
+                            : isCapturing
+                            ? "bg-tertiary animate-pulse"
+                            : isInitialized
+                            ? "bg-tertiary"
+                            : "bg-mutedForeground"
+                        }`}
+                      />
+                      <span className="text-sm font-body font-semibold text-foreground">
+                        {isPaused
+                          ? "Paused"
+                          : isTranscribing
+                          ? "Live"
+                          : isCapturing
+                          ? "Recording"
+                          : isInitialized
+                          ? "Ready"
+                          : "Offline"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {error && (
+                    <div className="text-sm font-body p-3 bg-secondary/20 border-2 border-secondary rounded-sm mb-3">
+                      {error}
                     </div>
                   )}
-                  {audioLevels.mic_level > 0 && audioLevels.mic_level < 0.1 && isCapturing && (
-                    <p className="text-xs text-tertiary font-body font-semibold mt-2">
-                      🔉 Speak louder or move closer to microphone
+
+                  {/* Permissions Help Button */}
+                  <button
+                    onClick={() => setShowPermissionsHelp(true)}
+                    className="w-full text-left bg-muted hover:bg-card border-2 border-border hover:border-foreground rounded-sm px-4 py-3 transition-all"
+                  >
+                    <p className="text-sm font-body font-semibold text-foreground">
+                      Need help with microphone permissions?
                     </p>
-                  )}
-                  {audioLevels.mic_level >= 0.1 && audioLevels.mic_level < 0.7 && isCapturing && (
-                    <p className="text-xs text-quaternary font-body font-semibold mt-2">
-                      ✓ Good level - keep speaking like this!
+                    <p className="text-xs font-body text-mutedForeground mt-1">
+                      Click here for step-by-step instructions
                     </p>
-                  )}
-                  {audioLevels.mic_level >= 0.7 && isCapturing && (
-                    <p className="text-xs text-secondary font-body font-semibold mt-2">
-                      🔊 Too loud - move back or reduce gain
-                    </p>
-                  )}
+                  </button>
                 </div>
 
-                {/* Combined Level */}
-                <div>
-                  <div className="flex justify-between mb-3">
-                    <span className="text-foreground font-body font-bold text-base">📊 Combined Signal</span>
-                    <span className="text-mutedForeground font-mono text-lg font-bold">
-                      {(audioLevels.combined_level * 100).toFixed(0)}%
-                    </span>
+                {/* Audio Levels */}
+                <div className={`card ${isCapturing ? 'shadow-pop-purple border-accent' : 'shadow-pop-soft'} transition-all`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-heading font-bold text-foreground">Audio Levels</h3>
+                    {isCapturing && (
+                      <span className="px-3 py-1 bg-quaternary border-2 border-foreground rounded-sm text-xs font-heading font-bold animate-pulse">
+                        RECORDING
+                      </span>
+                    )}
                   </div>
-                  <div className="w-full bg-muted border-2 border-foreground rounded-sm h-6 overflow-hidden">
-                    <div
-                      className={`h-full transition-all duration-75 ${getLevelColor(
-                        audioLevels.combined_level
-                      )}`}
-                      style={{ width: getLevelWidth(audioLevels.combined_level) }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
 
-            {/* Controls */}
-            <div className="card shadow-pop-soft">
-              <h3 className="text-xl font-heading font-bold mb-4 text-foreground">Controls</h3>
+                  {!isCapturing && (
+                    <div className="bg-tertiary/20 border-2 border-tertiary rounded-sm p-4 mb-4">
+                      <p className="text-sm font-body text-foreground text-center">
+                        <strong className="font-bold">Click "Start Call"</strong> to begin recording audio
+                      </p>
+                    </div>
+                  )}
 
-              <div className="space-y-3">
-                {/* Audio Controls */}
-                {!isCapturing ? (
-                  <button
-                    onClick={handleStartCapture}
-                    disabled={!isInitialized}
-                    className={`w-full transition-all ${
-                      isInitialized
-                        ? "bg-quaternary text-foreground border-2 border-foreground rounded-sm px-6 py-3 font-heading font-bold shadow-pop hover:shadow-pop-hover active:shadow-pop-active hover:-translate-y-0.5 active:translate-y-0"
-                        : "bg-muted text-mutedForeground border-2 border-border rounded-sm px-6 py-3 font-heading font-bold cursor-not-allowed opacity-50"
-                    }`}
-                  >
-                    Start Capture
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleStopCapture}
-                    className="btn-secondary w-full"
-                  >
-                    Stop Capture
-                  </button>
-                )}
-
-                {/* Transcription Controls */}
-                {!isTranscribing && !isPaused ? (
-                  <button
-                    onClick={handleStartTranscription}
-                    disabled={!isCapturing}
-                    className={`w-full transition-all ${
-                      isCapturing
-                        ? "btn-primary"
-                        : "bg-muted text-mutedForeground border-2 border-border rounded-sm px-6 py-3 font-heading font-bold cursor-not-allowed opacity-50"
-                    }`}
-                  >
-                    Start Transcription
-                  </button>
-                ) : isPaused ? (
-                  <button
-                    onClick={handleResume}
-                    className="w-full bg-quaternary text-foreground border-2 border-foreground rounded-sm px-6 py-3 font-heading font-bold shadow-pop hover:shadow-pop-hover active:shadow-pop-active transition-all hover:-translate-y-0.5 active:translate-y-0"
-                  >
-                    Resume (Customer Back)
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleStopTranscription}
-                    className="btn-tertiary w-full"
-                  >
-                    Stop Transcription
-                  </button>
-                )}
-
-                {/* Pause/Resume for Hold */}
-                {isTranscribing && !isPaused && (
-                  <button
-                    onClick={handlePause}
-                    className="btn-tertiary w-full"
-                  >
-                    Pause (Customer on Hold)
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Transcript Display */}
-            <div className="card shadow-pop-soft flex flex-col max-h-[calc(100vh-32rem)]">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-heading font-bold text-foreground">Transcripts</h3>
-                <button
-                  onClick={handleClearTranscripts}
-                  disabled={transcripts.length === 0}
-                  className={`px-4 py-1.5 rounded-sm text-sm font-heading font-bold transition-all ${
-                    transcripts.length > 0
-                      ? "bg-muted border-2 border-foreground hover:shadow-pop-active hover:-translate-y-0.5"
-                      : "bg-muted border-2 border-border opacity-50 cursor-not-allowed"
-                  }`}
-                >
-                  Clear
-                </button>
-              </div>
-
-              {transcripts.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center text-mutedForeground">
-                  <p className="text-sm text-center font-body">
-                    Start transcription<br />to see live text
-                  </p>
-                </div>
-              ) : (
-                <div className="flex-1 overflow-y-auto space-y-3">
-                  {transcripts.map((transcript, index) => (
-                    <div
-                      key={index}
-                      className="bg-card border-2 border-foreground rounded-sm p-4 shadow-pop-active animate-popIn"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <span className="text-xs font-mono text-mutedForeground">
-                          {formatTime(transcript.timestamp)}
-                        </span>
-                        <span
-                          className={`text-xs px-2 py-1 rounded-sm font-bold border-2 ${
-                            transcript.confidence > 0.8
-                              ? "bg-quaternary/20 border-quaternary text-foreground"
-                              : transcript.confidence > 0.6
-                              ? "bg-tertiary/20 border-tertiary text-foreground"
-                              : "bg-secondary/20 border-secondary text-foreground"
-                          }`}
-                        >
-                          {(transcript.confidence * 100).toFixed(0)}%
+                  <div className="space-y-6">
+                    {/* Microphone Level */}
+                    <div>
+                      <div className="flex justify-between mb-3">
+                        <span className="text-foreground font-heading font-bold text-lg">Microphone</span>
+                        <span className={`font-mono text-2xl font-bold ${
+                          audioLevels.mic_level > 0.1 ? 'text-foreground' : 'text-mutedForeground'
+                        }`}>
+                          {(audioLevels.mic_level * 100).toFixed(0)}%
                         </span>
                       </div>
-                      <p className="text-sm font-body text-foreground">{transcript.text}</p>
+                      <div className="w-full bg-muted border-2 border-foreground rounded-sm h-8 overflow-hidden relative">
+                        <div
+                          className={`h-full transition-all duration-75 ${getLevelColor(
+                            audioLevels.mic_level
+                          )}`}
+                          style={{ width: getLevelWidth(audioLevels.mic_level) }}
+                        />
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-1/4 h-full border-r border-foreground/20"></div>
+                          <div className="w-1/4 h-full border-r border-foreground/20"></div>
+                          <div className="w-1/4 h-full border-r border-foreground/20"></div>
+                        </div>
+                      </div>
+                      {audioLevels.mic_level === 0 && isCapturing && (
+                        <div className="mt-3 space-y-2">
+                          <p className="text-sm text-secondary font-body font-bold">
+                            No microphone input detected!
+                          </p>
+                          <button
+                            onClick={() => setShowPermissionsHelp(true)}
+                            className="w-full bg-secondary text-foreground border-2 border-foreground rounded-sm px-4 py-3 font-heading font-bold shadow-pop hover:shadow-pop-hover active:shadow-pop-active transition-all hover:-translate-y-0.5 active:translate-y-0 text-sm"
+                          >
+                            Fix Microphone Permissions
+                          </button>
+                        </div>
+                      )}
+                      {audioLevels.mic_level > 0 && audioLevels.mic_level < 0.1 && isCapturing && (
+                        <p className="text-xs text-tertiary font-body font-semibold mt-2">
+                          Speak louder or move closer to microphone
+                        </p>
+                      )}
+                      {audioLevels.mic_level >= 0.1 && audioLevels.mic_level < 0.7 && isCapturing && (
+                        <p className="text-xs text-quaternary font-body font-semibold mt-2">
+                          Good level - keep speaking like this
+                        </p>
+                      )}
+                      {audioLevels.mic_level >= 0.7 && isCapturing && (
+                        <p className="text-xs text-secondary font-body font-semibold mt-2">
+                          Too loud - move back or reduce gain
+                        </p>
+                      )}
                     </div>
-                  ))}
-                </div>
-              )}
 
-              {transcripts.length > 0 && (
-                <div className="mt-3 pt-3 border-t-2 border-border">
-                  <div className="text-xs font-body font-semibold text-mutedForeground">
-                    {transcripts.length} total
+                    {/* Combined Level */}
+                    <div>
+                      <div className="flex justify-between mb-3">
+                        <span className="text-foreground font-body font-bold text-base">Combined Signal</span>
+                        <span className="text-mutedForeground font-mono text-lg font-bold">
+                          {(audioLevels.combined_level * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-muted border-2 border-foreground rounded-sm h-6 overflow-hidden">
+                        <div
+                          className={`h-full transition-all duration-75 ${getLevelColor(
+                            audioLevels.combined_level
+                          )}`}
+                          style={{ width: getLevelWidth(audioLevels.combined_level) }}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
-              )}
-            </div>
+
+                {/* Controls */}
+                <div className="card shadow-pop-soft">
+                  <h3 className="text-xl font-heading font-bold mb-4 text-foreground">Controls</h3>
+
+                  <div className="space-y-3">
+                    {/* Start / End Call */}
+                    {!isCapturing ? (
+                      <button
+                        onClick={handleStartCapture}
+                        disabled={!isInitialized}
+                        className={`w-full transition-all ${
+                          isInitialized
+                            ? "bg-quaternary text-foreground border-2 border-foreground rounded-sm px-6 py-3 font-heading font-bold shadow-pop hover:shadow-pop-hover active:shadow-pop-active hover:-translate-y-0.5 active:translate-y-0"
+                            : "bg-muted text-mutedForeground border-2 border-border rounded-sm px-6 py-3 font-heading font-bold cursor-not-allowed opacity-50"
+                        }`}
+                      >
+                        Start Call
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleEndCall}
+                        className="btn-secondary w-full"
+                      >
+                        End Call
+                      </button>
+                    )}
+
+                    {/* Transcription Controls */}
+                    {!isTranscribing && !isPaused ? (
+                      <button
+                        onClick={handleStartTranscription}
+                        disabled={!isCapturing}
+                        className={`w-full transition-all ${
+                          isCapturing
+                            ? "btn-primary"
+                            : "bg-muted text-mutedForeground border-2 border-border rounded-sm px-6 py-3 font-heading font-bold cursor-not-allowed opacity-50"
+                        }`}
+                      >
+                        Start Transcription
+                      </button>
+                    ) : isPaused ? (
+                      <button
+                        onClick={handleResume}
+                        className="w-full bg-quaternary text-foreground border-2 border-foreground rounded-sm px-6 py-3 font-heading font-bold shadow-pop hover:shadow-pop-hover active:shadow-pop-active transition-all hover:-translate-y-0.5 active:translate-y-0"
+                      >
+                        Resume (Customer Back)
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleStopTranscription}
+                        className="btn-tertiary w-full"
+                      >
+                        Stop Transcription
+                      </button>
+                    )}
+
+                    {/* Pause/Resume for Hold */}
+                    {isTranscribing && !isPaused && (
+                      <button
+                        onClick={handlePause}
+                        className="btn-tertiary w-full"
+                      >
+                        Pause (Customer on Hold)
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Transcript Display */}
+                <div className="card shadow-pop-soft flex flex-col max-h-[calc(100vh-32rem)]">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-heading font-bold text-foreground">Transcripts</h3>
+                    <button
+                      onClick={handleClearTranscripts}
+                      disabled={transcripts.length === 0}
+                      className={`px-4 py-1.5 rounded-sm text-sm font-heading font-bold transition-all ${
+                        transcripts.length > 0
+                          ? "bg-muted border-2 border-foreground hover:shadow-pop-active hover:-translate-y-0.5"
+                          : "bg-muted border-2 border-border opacity-50 cursor-not-allowed"
+                      }`}
+                    >
+                      Clear
+                    </button>
+                  </div>
+
+                  {transcripts.length === 0 ? (
+                    <div className="flex-1 flex items-center justify-center text-mutedForeground">
+                      <p className="text-sm text-center font-body">
+                        Start transcription<br />to see live text
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex-1 overflow-y-auto space-y-3">
+                      {transcripts.map((transcript, index) => (
+                        <div
+                          key={index}
+                          className="bg-card border-2 border-foreground rounded-sm p-4 shadow-pop-active animate-popIn"
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <span className="text-xs font-mono text-mutedForeground">
+                              {formatTime(transcript.timestamp)}
+                            </span>
+                            <span
+                              className={`text-xs px-2 py-1 rounded-sm font-bold border-2 ${
+                                transcript.confidence > 0.8
+                                  ? "bg-quaternary/20 border-quaternary text-foreground"
+                                  : transcript.confidence > 0.6
+                                  ? "bg-tertiary/20 border-tertiary text-foreground"
+                                  : "bg-secondary/20 border-secondary text-foreground"
+                              }`}
+                            >
+                              {(transcript.confidence * 100).toFixed(0)}%
+                            </span>
+                          </div>
+                          <p className="text-sm font-body text-foreground">{transcript.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {transcripts.length > 0 && (
+                    <div className="mt-3 pt-3 border-t-2 border-border">
+                      <div className="text-xs font-body font-semibold text-mutedForeground">
+                        {transcripts.length} total
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
 

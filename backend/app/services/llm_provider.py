@@ -9,8 +9,21 @@ import logging
 from typing import Dict, Any, Optional
 from litellm import completion, acompletion
 import json
+import re
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_json(text: str) -> dict:
+    """Extract JSON from LLM response, handling markdown code blocks."""
+    if not text:
+        raise ValueError("Empty response from LLM")
+    text = text.strip()
+    # Strip markdown code fences
+    match = re.search(r'```(?:json)?\s*\n?(.*?)\n?\s*```', text, re.DOTALL)
+    if match:
+        text = match.group(1).strip()
+    return json.loads(text)
 
 
 class LLMProvider:
@@ -18,6 +31,7 @@ class LLMProvider:
 
     def __init__(self):
         self.default_model = os.getenv("LLM_MODEL", "claude-3-5-haiku-20241022")
+        self.analysis_model = os.getenv("ANALYSIS_MODEL", "anthropic/claude-sonnet-4-5-20250929")
         self.temperature = float(os.getenv("LLM_TEMPERATURE", "0.3"))
         self.max_tokens = int(os.getenv("LLM_MAX_TOKENS", "1024"))
 
@@ -29,6 +43,7 @@ class LLMProvider:
             logger.warning("No LLM API keys configured - scoring will fail")
 
         logger.info(f"LLM Provider initialized with model: {self.default_model}")
+        logger.info(f"Analysis model: {self.analysis_model}")
 
     async def score_adherence(
         self,
@@ -73,13 +88,13 @@ class LLMProvider:
                 ],
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
-                response_format={"type": "json_object"}
+                # JSON format requested in prompt — no response_format needed for Claude
             )
 
             processing_time = (time.time() - start_time) * 1000
 
             content = response.choices[0].message.content
-            result = json.loads(content)
+            result = _extract_json(content)
 
             logger.info(f"Adherence scored in {processing_time:.0f}ms: {result.get('score', 0):.2f}")
 
@@ -147,11 +162,11 @@ class LLMProvider:
                 ],
                 temperature=0.1,  # Lower temperature for compliance (more deterministic)
                 max_tokens=512,
-                response_format={"type": "json_object"}
+                # JSON format requested in prompt — no response_format needed for Claude
             )
 
             content = response.choices[0].message.content
-            result = json.loads(content)
+            result = _extract_json(content)
 
             processing_time = (time.time() - start_time) * 1000
 
@@ -257,6 +272,56 @@ Severity levels:
 - medium: Missing non-critical phrase
 - high: Missing critical information
 - critical: Legal requirement completely omitted"""
+
+    async def analyze_full_call(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+    ) -> Dict[str, Any]:
+        """
+        Run full-call analysis using the analysis model (Sonnet 4.5).
+        Returns parsed JSON analysis dict with token usage metadata.
+        """
+        start_time = time.time()
+
+        try:
+            response = await acompletion(
+                model=self.analysis_model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.5,
+                max_tokens=4096,
+            )
+
+            processing_time = (time.time() - start_time) * 1000
+            content = response.choices[0].message.content
+            result = _extract_json(content)
+
+            # Attach token usage metadata
+            usage = response.usage
+            result["_meta"] = {
+                "model_used": response.model,
+                "input_tokens": usage.prompt_tokens if usage else 0,
+                "output_tokens": usage.completion_tokens if usage else 0,
+                "processing_time_ms": processing_time,
+            }
+
+            logger.info(
+                f"Full-call analysis complete in {processing_time:.0f}ms, "
+                f"model={response.model}, "
+                f"tokens={usage.prompt_tokens if usage else 0}+{usage.completion_tokens if usage else 0}"
+            )
+
+            return result
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse analysis JSON: {e}")
+            raise ValueError(f"LLM returned invalid JSON: {e}")
+        except Exception as e:
+            logger.error(f"Full-call analysis failed: {e}")
+            raise
 
     async def generate_nudge(
         self,

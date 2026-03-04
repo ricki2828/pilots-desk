@@ -2,10 +2,6 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import PackageCalculator from "./PackageCalculator";
-import NudgeDisplay from "./NudgeDisplay";
-import ComplianceWarning from "./ComplianceWarning";
-import ScoreDisplay from "./ScoreDisplay";
-import { useScoring } from "../hooks/useScoring";
 
 interface ScriptNode {
   id: string;
@@ -60,17 +56,12 @@ export default function ScriptViewer() {
   const [error, setError] = useState<string | null>(null);
   const [widgetConfig, setWidgetConfig] = useState<WidgetConfig | null>(null);
   const [previousTranscript, setPreviousTranscript] = useState<string>("");
-  const [scoringEnabled, setScoringEnabled] = useState(false);
-
-  // Scoring integration (will connect to backend)
-  const agentId = "agent_demo_001"; // TODO: Get from authentication
-  const scoring = useScoring(agentId, scoringEnabled);
 
   // Load script on mount
   useEffect(() => {
     const loadScript = async () => {
       try {
-        const scriptPath = "scripts/sky_tv_nz/main_pitch.json";
+        const scriptPath = "scripts/sky_tv_nz/main_pitch_v2.json";
         const result = await invoke<string>("load_script", { scriptPath });
         setScriptName(result);
         setScriptLoaded(true);
@@ -135,16 +126,6 @@ export default function ScriptViewer() {
         if (navigatedTo) {
           console.log("Auto-navigated to:", navigatedTo);
 
-          // Score the previous node before navigation (if scoring enabled)
-          if (scoringEnabled && currentNode && previousTranscript.trim()) {
-            await scoring.scoreSegment(
-              `segment_${currentNode.id}_${Date.now()}`,
-              currentNode.id,
-              currentNode.config.text || "",
-              previousTranscript
-            );
-          }
-
           // Clear transcript accumulator for new node
           setPreviousTranscript("");
 
@@ -175,7 +156,7 @@ export default function ScriptViewer() {
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, [scriptLoaded, currentNode, widgetConfig, scoringEnabled, previousTranscript]);
+  }, [scriptLoaded, currentNode, widgetConfig, previousTranscript]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -415,46 +396,10 @@ export default function ScriptViewer() {
             </span>
             <span className="font-body font-semibold">Click card to jump</span>
           </div>
-          <button
-            onClick={() => setScoringEnabled(!scoringEnabled)}
-            className={`px-4 py-2 border-2 rounded-sm text-sm font-heading font-bold transition-all ${
-              scoringEnabled
-                ? "bg-quaternary border-foreground shadow-pop hover:shadow-pop-hover hover:-translate-y-0.5"
-                : "bg-muted border-border shadow-pop-active"
-            }`}
-          >
-            {scoringEnabled ? "✓ Scoring ON" : "Scoring OFF"}
-          </button>
+          <span className="font-body font-semibold text-mutedForeground">v2</span>
         </div>
       </div>
 
-      {/* Nudges Display (floating) */}
-      <NudgeDisplay
-        nudges={scoring.latestNudges}
-        onDismiss={scoring.clearNudge}
-        maxVisible={3}
-      />
-
-      {/* Compliance Warning (modal) */}
-      <ComplianceWarning
-        compliance={scoring.latestCompliance}
-        nodeId={currentNode.id}
-        onAcknowledge={() => {
-          // Clear compliance warning after acknowledgment
-          console.log("Compliance acknowledged");
-        }}
-      />
-
-      {/* Score Display (inline) - show latest score */}
-      {scoring.latestScore && (
-        <div className="absolute bottom-20 right-6 w-80">
-          <ScoreDisplay
-            score={scoring.latestScore.adherence}
-            nodeId={scoring.latestScore.segment_id}
-            showDetails={true}
-          />
-        </div>
-      )}
     </div>
   );
 }

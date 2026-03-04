@@ -13,7 +13,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
+  // Legend,
   ResponsiveContainer,
   Cell,
 } from 'recharts';

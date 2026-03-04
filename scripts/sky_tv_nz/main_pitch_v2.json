@@ -1,0 +1,943 @@
+{
+  "version": "2.0.0",
+  "client_id": "SKY_TV_NZ",
+  "name": "Sky TV NZ - Main Sales Pitch v2",
+  "description": "Enhanced outbound sales script with BANT qualification, comprehensive objection handling, and compliance-first approach",
+  "variables": [
+    "customer_name",
+    "agent_name",
+    "current_plan",
+    "fav_sport",
+    "fav_team",
+    "callback_date",
+    "callback_time",
+    "partner_name"
+  ],
+  "nodes": [
+    {
+      "id": "greeting_01",
+      "type": "SCRIPT",
+      "config": {
+        "text": "Hi {{customer_name}}, this is {{agent_name}} calling from Sky TV New Zealand. How are you doing today?",
+        "keywords": ["hi", "hello", "sky tv", "calling"],
+        "wait_for_response": true,
+        "display_notes": "SA AGENTS: Warm, friendly tone. Slow down your natural pace for NZ customers. Pronounce 'Sky' clearly."
+      },
+      "transitions": [
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["good", "fine", "well", "great", "alright"],
+          "next_node": "compliance_recording_01",
+          "confidence_threshold": 0.6
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["not interested", "no thanks", "remove me", "don't call"],
+          "next_node": "objection_not_interested_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["busy", "no time", "bad time", "can't talk"],
+          "next_node": "objection_busy_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "INTENT",
+          "value": "Positive",
+          "next_node": "compliance_recording_01",
+          "confidence_threshold": 0.6
+        }
+      ]
+    },
+    {
+      "id": "compliance_recording_01",
+      "type": "COMPLIANCE",
+      "config": {
+        "text": "Great! Before we continue, I need to let you know this call is being recorded for quality and training purposes. Are you okay with that?",
+        "keywords": ["recording", "consent", "quality", "training"],
+        "verbatim_match": 0.95,
+        "on_skip": "WARNING",
+        "alert_message": "COMPLIANCE: Recording consent is MANDATORY in NZ before proceeding",
+        "wait_for_response": true,
+        "display_notes": "CRITICAL: MUST get verbal consent. NZ Privacy Act requirement. Do not skip."
+      },
+      "transitions": [
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["yes", "sure", "okay", "fine", "no problem", "go ahead"],
+          "next_node": "needs_discovery_intro",
+          "confidence_threshold": 0.8
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["no", "don't want", "not okay", "prefer not"],
+          "next_node": "compliance_decline_01",
+          "confidence_threshold": 0.8
+        }
+      ]
+    },
+    {
+      "id": "compliance_decline_01",
+      "type": "SCRIPT",
+      "config": {
+        "text": "I completely understand. Unfortunately, I can't proceed without recording consent as it's a regulatory requirement. Would you prefer I call you back at a better time when you're comfortable with it?",
+        "keywords": ["can't proceed", "regulatory", "call back"],
+        "wait_for_response": true,
+        "display_notes": "Recording consent declined. Offer callback option."
+      },
+      "transitions": [
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["yes", "sure", "call back", "later"],
+          "next_node": "callback_schedule_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["no", "not interested", "don't call"],
+          "next_node": "polite_close_01",
+          "confidence_threshold": 0.7
+        }
+      ]
+    },
+    {
+      "id": "needs_discovery_intro",
+      "type": "SCRIPT",
+      "config": {
+        "text": "Perfect, thanks {{customer_name}}. I'm reaching out because we have some exciting packages right now with premium sports and entertainment. Quick question - are you currently watching any sports?",
+        "keywords": ["sports", "packages", "entertainment", "watching"],
+        "wait_for_response": true,
+        "display_notes": "Start NEED qualification. Listen for: rugby, cricket, football, netball, basketball."
+      },
+      "transitions": [
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["rugby", "all blacks", "super rugby", "crusaders", "blues", "highlanders"],
+          "next_node": "sport_pitch_rugby",
+          "confidence_threshold": 0.6
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["cricket", "black caps", "test match"],
+          "next_node": "sport_pitch_cricket",
+          "confidence_threshold": 0.6
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["football", "soccer", "premier league", "champions league"],
+          "next_node": "sport_pitch_football",
+          "confidence_threshold": 0.6
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["no", "not really", "don't watch", "not into sports"],
+          "next_node": "movies_pitch_01",
+          "confidence_threshold": 0.6
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["netflix", "streaming", "already have"],
+          "next_node": "objection_already_streaming_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "INTENT",
+          "value": "Positive",
+          "next_node": "sport_pitch_generic",
+          "confidence_threshold": 0.6
+        }
+      ]
+    },
+    {
+      "id": "sport_pitch_rugby",
+      "type": "SCRIPT_AND_WIDGET",
+      "config": {
+        "text": "Fantastic! Rugby fans absolutely love our Sport package. You get every All Blacks match, all Super Rugby games, and exclusive behind-the-scenes content you can't get anywhere else. Let me show you what's included.",
+        "widget": "package_calculator",
+        "keywords": ["all blacks", "super rugby", "sport package", "exclusive"],
+        "auto_trigger": {
+          "listen_for": ["rugby", "all blacks", "super rugby"],
+          "action": "enable_sport_package"
+        },
+        "display_notes": "Widget auto-enables Sport package. Emphasize exclusivity (not on streaming)."
+      },
+      "transitions": [
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["sounds good", "interested", "yes", "tell me more"],
+          "next_node": "bundle_upsell_sport",
+          "confidence_threshold": 0.6
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["expensive", "cost", "price", "how much"],
+          "next_node": "price_reveal_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["think about it", "not sure", "maybe later"],
+          "next_node": "objection_timing_01",
+          "confidence_threshold": 0.7
+        }
+      ]
+    },
+    {
+      "id": "sport_pitch_cricket",
+      "type": "SCRIPT_AND_WIDGET",
+      "config": {
+        "text": "Excellent! Cricket season is massive right now. Our Sport package gives you every Black Caps match - tests, ODIs, T20s - plus IPL, The Ashes, and all the big tournaments. Let me show you the details.",
+        "widget": "package_calculator",
+        "keywords": ["black caps", "cricket", "sport package", "ipl"],
+        "auto_trigger": {
+          "listen_for": ["cricket", "black caps"],
+          "action": "enable_sport_package"
+        },
+        "display_notes": "Widget auto-enables Sport package. Cricket is huge in NZ - emphasize comprehensive coverage."
+      },
+      "transitions": [
+        {
+          "trigger_type": "INTENT",
+          "value": "Positive",
+          "next_node": "bundle_upsell_sport",
+          "confidence_threshold": 0.6
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["expensive", "cost", "price"],
+          "next_node": "price_reveal_01",
+          "confidence_threshold": 0.7
+        }
+      ]
+    },
+    {
+      "id": "sport_pitch_football",
+      "type": "SCRIPT_AND_WIDGET",
+      "config": {
+        "text": "Perfect! We've got Premier League, La Liga, Champions League, Europa League - basically every major football competition. Our Sport package is a must-have for football fans in New Zealand.",
+        "widget": "package_calculator",
+        "keywords": ["premier league", "football", "sport package", "champions league"],
+        "auto_trigger": {
+          "listen_for": ["football", "soccer", "premier league"],
+          "action": "enable_sport_package"
+        },
+        "display_notes": "Widget auto-enables Sport package. Football fans are passionate - emphasize breadth."
+      },
+      "transitions": [
+        {
+          "trigger_type": "INTENT",
+          "value": "Positive",
+          "next_node": "bundle_upsell_sport",
+          "confidence_threshold": 0.6
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["expensive", "cost", "price"],
+          "next_node": "price_reveal_01",
+          "confidence_threshold": 0.7
+        }
+      ]
+    },
+    {
+      "id": "sport_pitch_generic",
+      "type": "SCRIPT_AND_WIDGET",
+      "config": {
+        "text": "Great! Our Sport package covers rugby, cricket, football, netball, basketball - basically every major sport you can think of. All live, all in HD. Let me show you what's included.",
+        "widget": "package_calculator",
+        "keywords": ["sport package", "coverage", "live", "hd"],
+        "auto_trigger": {
+          "listen_for": ["yes", "sure", "interested"],
+          "action": "enable_sport_package"
+        },
+        "display_notes": "Generic sport pitch. Let customer ask about specific sports if interested."
+      },
+      "transitions": [
+        {
+          "trigger_type": "INTENT",
+          "value": "Positive",
+          "next_node": "bundle_upsell_sport",
+          "confidence_threshold": 0.6
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["expensive", "cost", "price"],
+          "next_node": "price_reveal_01",
+          "confidence_threshold": 0.7
+        }
+      ]
+    },
+    {
+      "id": "bundle_upsell_sport",
+      "type": "SCRIPT",
+      "config": {
+        "text": "Awesome! Now, a lot of our Sport customers also grab the Movies package because when you bundle any two packages together, you save an extra $5 per month. Would you be interested in adding Movies as well?",
+        "keywords": ["bundle", "movies", "save", "$5"],
+        "wait_for_response": true,
+        "display_notes": "Upsell attempt. Bundle discount: 2 packages = $5 off, 3 packages = $10 off."
+      },
+      "transitions": [
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["yes", "sure", "sounds good", "tell me more"],
+          "next_node": "movies_add_bundle",
+          "confidence_threshold": 0.6
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["no", "just sport", "not interested"],
+          "next_node": "soft_close_01",
+          "confidence_threshold": 0.7
+        }
+      ]
+    },
+    {
+      "id": "movies_add_bundle",
+      "type": "SCRIPT_AND_WIDGET",
+      "config": {
+        "text": "Excellent choice! Our Movies package includes the latest blockbusters, MGM, Rialto, and Warner Bros channels. You'll have hundreds of movies on demand. Let me update that for you.",
+        "widget": "package_calculator",
+        "keywords": ["movies", "blockbusters", "on demand"],
+        "auto_trigger": {
+          "listen_for": ["movies", "add"],
+          "action": "enable_movies_package"
+        },
+        "display_notes": "Widget auto-enables Movies package AND applies $5 bundle discount."
+      },
+      "transitions": [
+        {
+          "trigger_type": "AUTO",
+          "next_node": "soft_close_01"
+        }
+      ]
+    },
+    {
+      "id": "movies_pitch_01",
+      "type": "SCRIPT_AND_WIDGET",
+      "config": {
+        "text": "No worries about sports. How about movies? Our Movies package gives you the latest blockbusters, premium channels like MGM and Rialto, and hundreds of movies on demand. Perfect for movie nights at home.",
+        "widget": "package_calculator",
+        "keywords": ["movies", "blockbusters", "channels", "on demand"],
+        "auto_trigger": {
+          "listen_for": ["movies", "films"],
+          "action": "enable_movies_package"
+        },
+        "display_notes": "Movies package pitch. Alternative path for non-sports fans."
+      },
+      "transitions": [
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["yes", "interested", "sounds good"],
+          "next_node": "soft_close_01",
+          "confidence_threshold": 0.6
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["not interested", "no thanks"],
+          "next_node": "soho_pitch_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["expensive", "price", "cost"],
+          "next_node": "price_reveal_01",
+          "confidence_threshold": 0.7
+        }
+      ]
+    },
+    {
+      "id": "soho_pitch_01",
+      "type": "SCRIPT_AND_WIDGET",
+      "config": {
+        "text": "I understand. What about quality drama and lifestyle content? Our SoHo package has award-winning series like Succession, The White Lotus, and premium documentaries. Think of it as curated, high-quality entertainment.",
+        "widget": "package_calculator",
+        "keywords": ["soho", "drama", "documentaries", "series"],
+        "auto_trigger": {
+          "listen_for": ["soho", "drama", "series"],
+          "action": "enable_soho_package"
+        },
+        "display_notes": "SoHo package pitch. Last option before soft close or objection handling."
+      },
+      "transitions": [
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["yes", "interested", "sounds good"],
+          "next_node": "soft_close_01",
+          "confidence_threshold": 0.6
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["not interested", "no thanks"],
+          "next_node": "objection_not_interested_02",
+          "confidence_threshold": 0.7
+        }
+      ]
+    },
+    {
+      "id": "soft_close_01",
+      "type": "SCRIPT",
+      "config": {
+        "text": "So based on what we've discussed, does this sound like something that would work well for you and your household?",
+        "keywords": ["sound like", "work well", "household"],
+        "wait_for_response": true,
+        "display_notes": "SOFT CLOSE: Trial close before price reveal. Gauge true interest. Listen carefully."
+      },
+      "transitions": [
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["yes", "sounds good", "definitely", "think so"],
+          "next_node": "qualify_authority_01",
+          "confidence_threshold": 0.6
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["maybe", "not sure", "need to think"],
+          "next_node": "objection_timing_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["partner", "wife", "husband", "spouse"],
+          "next_node": "objection_partner_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["no", "not interested"],
+          "next_node": "objection_not_interested_02",
+          "confidence_threshold": 0.7
+        }
+      ]
+    },
+    {
+      "id": "qualify_authority_01",
+      "type": "SCRIPT",
+      "config": {
+        "text": "Great! Just to confirm, are you the account holder for your household, or would you need to check with anyone else before we proceed?",
+        "keywords": ["account holder", "check with", "household"],
+        "wait_for_response": true,
+        "display_notes": "AUTHORITY qualification (BANT). If not decision-maker, offer callback or partner invite."
+      },
+      "transitions": [
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["yes", "i am", "me", "just me", "my account"],
+          "next_node": "price_reveal_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["partner", "wife", "husband", "spouse", "check with"],
+          "next_node": "objection_partner_01",
+          "confidence_threshold": 0.7
+        }
+      ]
+    },
+    {
+      "id": "price_reveal_01",
+      "type": "SCRIPT",
+      "config": {
+        "text": "Perfect! Based on what you've selected, your total comes to [PRICE FROM WIDGET] per month. And right now, we're running a promotion - your first month is 50% off, so you can try it for half price.",
+        "keywords": ["price", "month", "discount", "50% off", "promotion"],
+        "wait_for_response": true,
+        "display_notes": "CRITICAL: Price shown in widget. Emphasize 50% first month discount. If bundle selected, mention bundle savings."
+      },
+      "transitions": [
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["sounds good", "let's do it", "sign me up", "okay"],
+          "next_node": "compliance_parental_01",
+          "confidence_threshold": 0.6
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["expensive", "too much", "can't afford", "pricey"],
+          "next_node": "objection_price_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["think about it", "maybe later", "not sure"],
+          "next_node": "objection_timing_01",
+          "confidence_threshold": 0.7
+        }
+      ]
+    },
+    {
+      "id": "objection_not_interested_01",
+      "type": "SCRIPT",
+      "config": {
+        "text": "I totally understand, {{customer_name}}. Can I ask - is it because you're happy with what you've got, or just not the right time? I'd hate for you to miss out on this promotion.",
+        "keywords": ["understand", "happy with", "right time", "promotion"],
+        "wait_for_response": true,
+        "display_notes": "Early 'not interested' objection. Probe gently for real reason. Don't be pushy."
+      },
+      "transitions": [
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["timing", "later", "busy", "not now"],
+          "next_node": "objection_timing_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["happy", "netflix", "streaming", "have something"],
+          "next_node": "objection_already_streaming_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["not interested", "no thanks", "remove me"],
+          "next_node": "polite_close_01",
+          "confidence_threshold": 0.8
+        }
+      ]
+    },
+    {
+      "id": "objection_not_interested_02",
+      "type": "SCRIPT",
+      "config": {
+        "text": "Fair enough, {{customer_name}}. I appreciate your honesty. Just one last thing - would you be open to a quick callback in a few months when we have new promotions? I promise I won't take up much of your time.",
+        "keywords": ["appreciate", "callback", "few months", "new promotions"],
+        "wait_for_response": true,
+        "display_notes": "Later 'not interested' objection. Last attempt - offer future callback."
+      },
+      "transitions": [
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["yes", "sure", "okay", "fine"],
+          "next_node": "callback_schedule_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["no", "don't call", "not interested"],
+          "next_node": "polite_close_01",
+          "confidence_threshold": 0.8
+        }
+      ]
+    },
+    {
+      "id": "objection_price_01",
+      "type": "SCRIPT",
+      "config": {
+        "text": "I totally get that budget matters. Here's how I look at it - you're getting [LIST PACKAGES] for less than the cost of two coffees a day. Plus, with the 50% off first month, you can try it out with almost no commitment. Does that sound more reasonable?",
+        "keywords": ["budget", "affordable", "two coffees", "50% off", "no commitment"],
+        "wait_for_response": true,
+        "display_notes": "Price objection handler. Break down to daily cost. Emphasize trial offer and value."
+      },
+      "transitions": [
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["okay", "makes sense", "fair enough", "let's do it"],
+          "next_node": "compliance_parental_01",
+          "confidence_threshold": 0.6
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["still expensive", "still too much", "can't afford"],
+          "next_node": "objection_price_downgrade",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["think about it", "maybe later"],
+          "next_node": "objection_timing_01",
+          "confidence_threshold": 0.7
+        }
+      ]
+    },
+    {
+      "id": "objection_price_downgrade",
+      "type": "SCRIPT",
+      "config": {
+        "text": "No problem at all. Would it help if we just started with one package instead? For example, just Sport at $29.99, or Movies at $19.99? That way you can see the value before adding more.",
+        "keywords": ["one package", "sport", "movies", "see the value"],
+        "wait_for_response": true,
+        "display_notes": "Downgrade offer. Reduce commitment to single package. Still attempt close."
+      },
+      "transitions": [
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["yes", "okay", "just sport", "just movies"],
+          "next_node": "compliance_parental_01",
+          "confidence_threshold": 0.6
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["no", "still not", "can't"],
+          "next_node": "callback_schedule_01",
+          "confidence_threshold": 0.7
+        }
+      ]
+    },
+    {
+      "id": "objection_timing_01",
+      "type": "SCRIPT",
+      "config": {
+        "text": "I completely understand you want to think about it, {{customer_name}}. Just so you know, this 50% off first month promotion ends this Friday, so if you're interested at all, now's definitely the best time. Can I at least get you started today?",
+        "keywords": ["think about it", "promotion ends", "this friday", "best time"],
+        "wait_for_response": true,
+        "display_notes": "Timing objection. Create urgency with promotion deadline. If they resist, offer callback."
+      },
+      "transitions": [
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["okay", "let's do it", "go ahead", "sure"],
+          "next_node": "compliance_parental_01",
+          "confidence_threshold": 0.6
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["no", "later", "call back", "not now"],
+          "next_node": "callback_schedule_01",
+          "confidence_threshold": 0.7
+        }
+      ]
+    },
+    {
+      "id": "objection_busy_01",
+      "type": "SCRIPT",
+      "config": {
+        "text": "I completely understand you're busy, {{customer_name}}. This will only take 2 minutes, and I think you'll genuinely want to hear about this offer. Can I have just 90 seconds of your time?",
+        "keywords": ["busy", "2 minutes", "90 seconds", "want to hear"],
+        "wait_for_response": true,
+        "display_notes": "Busy objection. Be respectful of their time. Quantify the ask (90 seconds)."
+      },
+      "transitions": [
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["okay", "fine", "go ahead", "quick"],
+          "next_node": "needs_discovery_intro",
+          "confidence_threshold": 0.6
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["no", "not now", "call later", "busy"],
+          "next_node": "callback_schedule_01",
+          "confidence_threshold": 0.7
+        }
+      ]
+    },
+    {
+      "id": "objection_already_streaming_01",
+      "type": "SCRIPT",
+      "config": {
+        "text": "That's great you've got Netflix or similar. Here's the thing though - we have exclusive live sports and premium channels you can't get on streaming services. All Blacks games, Premier League, latest movies. It's actually complementary to what you already have. Would that be useful to you?",
+        "keywords": ["exclusive", "live sports", "can't get on streaming", "complementary"],
+        "wait_for_response": true,
+        "display_notes": "Already have streaming objection. Emphasize EXCLUSIVITY (live sports, premium channels). Position as additive."
+      },
+      "transitions": [
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["yes", "useful", "makes sense", "interested"],
+          "next_node": "sport_pitch_generic",
+          "confidence_threshold": 0.6
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["no", "not interested", "happy with what I have"],
+          "next_node": "polite_close_01",
+          "confidence_threshold": 0.7
+        }
+      ]
+    },
+    {
+      "id": "objection_partner_01",
+      "type": "SCRIPT",
+      "config": {
+        "text": "That's very sensible to check with your partner first. Would it help if I gave you a quick summary you can share with them? Or I'm happy to call back when you're both available - what works best for you?",
+        "keywords": ["partner", "summary", "call back", "both available"],
+        "wait_for_response": true,
+        "display_notes": "Partner objection. Don't pressure solo decision. Offer summary OR callback when both available."
+      },
+      "transitions": [
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["summary", "email", "send", "details"],
+          "next_node": "email_summary_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["call back", "both here", "together", "later"],
+          "next_node": "callback_schedule_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["actually", "go ahead", "it's fine", "let's do it"],
+          "next_node": "price_reveal_01",
+          "confidence_threshold": 0.6
+        }
+      ]
+    },
+    {
+      "id": "objection_in_contract_01",
+      "type": "SCRIPT",
+      "config": {
+        "text": "I hear you on that. When does your current contract end? We can actually get you set up now and schedule the activation for when your contract finishes, so you don't miss out on this promotion.",
+        "keywords": ["contract ends", "set up now", "schedule activation", "don't miss out"],
+        "wait_for_response": true,
+        "display_notes": "In contract objection. Offer future activation option. Lock in promotion now."
+      },
+      "transitions": [
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["soon", "next month", "few weeks", "okay"],
+          "next_node": "compliance_parental_01",
+          "confidence_threshold": 0.6
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["long time", "year", "months", "not soon"],
+          "next_node": "callback_schedule_01",
+          "confidence_threshold": 0.7
+        }
+      ]
+    },
+    {
+      "id": "objection_had_sky_before_01",
+      "type": "SCRIPT",
+      "config": {
+        "text": "I appreciate you being upfront about that. Can I ask what made you cancel before? We've made a lot of improvements to our service and pricing in the last year, so it might be worth another look.",
+        "keywords": ["cancel before", "improvements", "worth another look"],
+        "wait_for_response": true,
+        "display_notes": "Had Sky before objection. Probe reason for cancellation. Position as improved service."
+      },
+      "transitions": [
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["expensive", "price", "too much"],
+          "next_node": "objection_price_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["didn't watch", "wasn't using", "waste"],
+          "next_node": "needs_discovery_intro",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["not interested", "don't want it again"],
+          "next_node": "polite_close_01",
+          "confidence_threshold": 0.8
+        }
+      ]
+    },
+    {
+      "id": "callback_schedule_01",
+      "type": "SCRIPT",
+      "config": {
+        "text": "No problem at all, {{customer_name}}. When would be a good time for me to call you back? Maybe in a week or two?",
+        "keywords": ["call back", "good time", "week or two"],
+        "wait_for_response": true,
+        "display_notes": "Callback scheduling. Capture preferred date/time. Log in CRM for follow-up."
+      },
+      "transitions": [
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["week", "next week", "monday", "tuesday", "wednesday", "thursday", "friday"],
+          "next_node": "callback_confirm_01",
+          "confidence_threshold": 0.6
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["month", "few weeks", "later"],
+          "next_node": "callback_confirm_01",
+          "confidence_threshold": 0.6
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["don't call", "no", "not interested"],
+          "next_node": "polite_close_01",
+          "confidence_threshold": 0.8
+        }
+      ]
+    },
+    {
+      "id": "callback_confirm_01",
+      "type": "SCRIPT",
+      "config": {
+        "text": "Perfect! I'll give you a call back [CALLBACK_DATE] around [CALLBACK_TIME]. I'll keep a note of what we discussed today so we can pick up where we left off. Sound good?",
+        "keywords": ["call back", "keep a note", "pick up", "sound good"],
+        "wait_for_response": true,
+        "display_notes": "Confirm callback details. Log in CRM: date, time, packages discussed, objections."
+      },
+      "transitions": [
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["yes", "sure", "sounds good", "okay"],
+          "next_node": "polite_close_callback",
+          "confidence_threshold": 0.7
+        }
+      ]
+    },
+    {
+      "id": "email_summary_01",
+      "type": "SCRIPT",
+      "config": {
+        "text": "Great idea! I'll send you an email with all the package details and pricing so you can review it together. What's the best email address for you?",
+        "keywords": ["email", "package details", "pricing", "email address"],
+        "wait_for_response": true,
+        "display_notes": "Email summary request. Capture email address. Send follow-up with offer details."
+      },
+      "transitions": [
+        {
+          "trigger_type": "AUTO",
+          "next_node": "email_confirm_01"
+        }
+      ]
+    },
+    {
+      "id": "email_confirm_01",
+      "type": "SCRIPT",
+      "config": {
+        "text": "Perfect, I've got that. You'll receive the email within the next hour. Can I give you a quick call back in a few days to see if you have any questions?",
+        "keywords": ["within the hour", "call back", "few days", "questions"],
+        "wait_for_response": true,
+        "display_notes": "Confirm email sent. Suggest callback to maintain engagement."
+      },
+      "transitions": [
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["yes", "sure", "okay"],
+          "next_node": "callback_schedule_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["no", "i'll call you", "don't call"],
+          "next_node": "polite_close_01",
+          "confidence_threshold": 0.8
+        }
+      ]
+    },
+    {
+      "id": "compliance_parental_01",
+      "type": "COMPLIANCE",
+      "config": {
+        "text": "Excellent! Before we finalize, I need to let you know that Sky TV offers Parental Controls to manage content for children. You can set a PIN to restrict certain channels and content ratings. Would you like me to set that up for you?",
+        "keywords": ["parental", "pin", "children", "content ratings", "restrict"],
+        "verbatim_match": 0.90,
+        "on_skip": "WARNING",
+        "alert_message": "COMPLIANCE: Parental PIN disclosure required (NZ regulatory requirement)",
+        "wait_for_response": true,
+        "display_notes": "MANDATORY: Parental controls disclosure. NZ Broadcasting Standards Authority requirement."
+      },
+      "transitions": [
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["yes", "please", "set it up", "sure"],
+          "next_node": "close_sale_01",
+          "confidence_threshold": 0.6
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["no", "not needed", "no children", "no kids"],
+          "next_node": "close_sale_01",
+          "confidence_threshold": 0.6
+        }
+      ]
+    },
+    {
+      "id": "close_sale_01",
+      "type": "SCRIPT",
+      "config": {
+        "text": "Fantastic! Let me just confirm your details and we'll get you all set up. Your package will be activated within 24 hours, and you'll receive a confirmation email with all the details. Welcome to Sky TV, {{customer_name}}!",
+        "keywords": ["confirm", "set up", "24 hours", "confirmation email", "welcome"],
+        "wait_for_response": false,
+        "display_notes": "SALE CLOSED! Mark as SUCCESSFUL in CRM. Capture: packages selected, total price, activation date."
+      },
+      "transitions": [
+        {
+          "trigger_type": "AUTO",
+          "next_node": "end_call_01"
+        }
+      ]
+    },
+    {
+      "id": "polite_close_01",
+      "type": "SCRIPT",
+      "config": {
+        "text": "No problem at all, {{customer_name}}. I really appreciate your time today. If you change your mind or have any questions, feel free to call us anytime on 0800 SKY TV. Have a wonderful day!",
+        "keywords": ["no problem", "appreciate", "change your mind", "wonderful day"],
+        "wait_for_response": false,
+        "display_notes": "Polite close. Mark as NO SALE in CRM. Log reason: not interested / timing / other."
+      },
+      "transitions": [
+        {
+          "trigger_type": "AUTO",
+          "next_node": "end_call_01"
+        }
+      ]
+    },
+    {
+      "id": "polite_close_callback",
+      "type": "SCRIPT",
+      "config": {
+        "text": "Perfect! I'll speak to you [CALLBACK_DATE]. Thanks for your time today, {{customer_name}}, and have a great day!",
+        "keywords": ["speak to you", "thanks", "great day"],
+        "wait_for_response": false,
+        "display_notes": "Polite close with callback scheduled. Mark as CALLBACK SCHEDULED in CRM."
+      },
+      "transitions": [
+        {
+          "trigger_type": "AUTO",
+          "next_node": "end_call_01"
+        }
+      ]
+    },
+    {
+      "id": "end_call_01",
+      "type": "ACTION",
+      "config": {
+        "action": "END_CALL",
+        "disposition": "AUTO",
+        "display_notes": "Call complete. System logs outcome: SALE / NO SALE / CALLBACK / EMAIL SENT."
+      },
+      "transitions": []
+    }
+  ],
+  "widgets": {
+    "package_calculator": {
+      "type": "SKY_TV_PACKAGES",
+      "config": {
+        "packages": [
+          {
+            "id": "sport",
+            "name": "Sport",
+            "price": 29.99,
+            "description": "All Blacks, Super Rugby, Premier League, Cricket, and more",
+            "auto_enable_keywords": ["rugby", "cricket", "football", "sport", "all blacks"]
+          },
+          {
+            "id": "movies",
+            "name": "Movies",
+            "price": 19.99,
+            "description": "Latest blockbusters, MGM, Rialto, Warner Bros channels",
+            "auto_enable_keywords": ["movies", "films", "blockbusters"]
+          },
+          {
+            "id": "soho",
+            "name": "SoHo",
+            "price": 14.99,
+            "description": "Premium drama, award-winning series, documentaries",
+            "auto_enable_keywords": ["soho", "drama", "series", "succession"]
+          }
+        ],
+        "base_price": 24.99,
+        "discount_first_month": 0.50,
+        "bundle_discounts": {
+          "2_packages": 5.00,
+          "3_packages": 10.00
+        },
+        "display_total": true,
+        "display_bundle_savings": true,
+        "display_first_month_price": true
+      }
+    }
+  }
+}

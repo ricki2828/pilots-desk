@@ -6,8 +6,7 @@
 
 import { useState, useCallback } from 'react';
 import { format } from 'date-fns';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8006';
+import { apiFetch } from '../lib/api';
 
 export interface SearchFilters {
   query: string;
@@ -104,7 +103,7 @@ export function useTranscriptSearch(): UseTranscriptSearchResult {
         requestBody.compliance_only = filters.complianceOnly;
       }
 
-      const response = await fetch(`${API_URL}/api/search/transcripts`, {
+      const response = await apiFetch(`/api/search/transcripts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

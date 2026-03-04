@@ -12,7 +12,7 @@ from pydantic import BaseModel
 import logging
 
 from app.db.database import get_db
-from app.db.models import SegmentScore, CallMetadata, Agent
+from app.db.models import SegmentScore, CallMetadata, Agent, CallTranscript
 from app.services.pii_redactor import PIIRedactor
 
 logger = logging.getLogger(__name__)
@@ -145,9 +145,74 @@ async def search_transcripts(
     # Execute query
     results = query.all()
 
+    # Also search call_transcripts (richer full-call transcripts from Deepgram)
+    transcript_query = db.query(
+        CallTranscript,
+        CallMetadata,
+        Agent,
+    ).join(
+        CallMetadata, CallTranscript.call_id == CallMetadata.id
+    ).join(
+        Agent, CallMetadata.agent_id == Agent.id
+    ).filter(
+        Agent.client_id == request.client_id
+    )
+
+    transcript_search_conditions = []
+    for term in search_terms:
+        transcript_search_conditions.append(
+            func.lower(CallTranscript.full_transcript).contains(term)
+        )
+    if transcript_search_conditions:
+        transcript_query = transcript_query.filter(and_(*transcript_search_conditions))
+
+    if request.agent_id:
+        transcript_query = transcript_query.filter(CallMetadata.agent_id == request.agent_id)
+    if request.start_date:
+        transcript_query = transcript_query.filter(func.cast(CallMetadata.started_at, Date) >= request.start_date)
+    if request.end_date:
+        transcript_query = transcript_query.filter(func.cast(CallMetadata.started_at, Date) <= request.end_date)
+    if request.disposition:
+        transcript_query = transcript_query.filter(CallMetadata.disposition == request.disposition)
+
+    transcript_query = transcript_query.order_by(desc(CallMetadata.started_at)).limit(request.limit)
+    transcript_results = transcript_query.all()
+
+    # Track call IDs from full-call transcript results to avoid duplication
+    full_transcript_call_ids = set()
+
     # Format results with PII redaction
     search_results = []
+
+    # Full-call transcript results first (higher quality)
+    for transcript_rec, call, agent in transcript_results:
+        full_transcript_call_ids.add(call.id)
+        snippet = transcript_rec.full_transcript[:200]
+        if len(transcript_rec.full_transcript) > 200:
+            snippet += "..."
+
+        matched_keywords = [
+            term for term in search_terms
+            if term in transcript_rec.full_transcript.lower()
+        ]
+
+        search_results.append(SearchResult(
+            segment_id=f"full_{call.id}",
+            call_id=str(call.id),
+            node_id="full_transcript",
+            agent_name=agent.name,
+            transcript_snippet=snippet,
+            adherence_score=call.adherence_score or 0.0,
+            compliance_ok=call.compliance_ok if call.compliance_ok is not None else True,
+            call_started_at=call.started_at.isoformat(),
+            call_disposition=call.disposition,
+            matched_keywords=matched_keywords,
+        ))
+
+    # Segment-based results (fallback for calls without full transcripts)
     for segment, call, agent in results:
+        if call.id in full_transcript_call_ids:
+            continue  # Skip — already included from full transcript
         # Redact PII from transcript
         redacted_transcript, _ = pii_redactor.redact(segment.actual_transcript or "")
 
@@ -186,7 +251,7 @@ async def search_transcripts(
 
     return SearchResponse(
         results=search_results,
-        total_results=total_results,
+        total_results=len(search_results),
         query=request.query,
         search_time_ms=round(search_time_ms, 2)
     )

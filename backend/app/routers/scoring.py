@@ -20,12 +20,24 @@ router = APIRouter()
 pii_redactor = PIIRedactor()
 
 
-@router.post("/score", response_model=ScoreResponse)
+@router.post("/score")
+async def score_segment_deprecated():
+    """
+    DEPRECATED: Real-time scoring has been replaced by post-call analysis.
+    Submit audio via POST /api/calls/{call_id}/end instead.
+    """
+    return {
+        "deprecated": True,
+        "message": "Real-time scoring has been replaced by post-call analysis. Submit audio via POST /api/calls/{call_id}/end",
+        "migration": "POST /api/calls/{call_id}/end",
+    }
+
+
+@router.post("/score/legacy", response_model=ScoreResponse)
 async def score_segment(request: ScoreRequest, req: Request):
     """
-    Score a transcript segment for adherence and compliance
-
-    This is the main endpoint called by the desktop app after each script node.
+    Score a transcript segment for adherence and compliance (legacy endpoint).
+    Kept for backwards compatibility during migration.
     """
     start_time = time.time()
 
@@ -39,7 +51,8 @@ async def score_segment(request: ScoreRequest, req: Request):
     try:
         # Get services from app state
         llm_provider = req.app.state.llm_provider
-        adherence_scorer = AdherenceScorer(llm_provider)
+        coaching_engine = getattr(req.app.state, "coaching_engine", None)
+        adherence_scorer = AdherenceScorer(llm_provider, coaching_engine)
         compliance_detector = ComplianceDetector(llm_provider)
 
         # Score adherence
@@ -47,7 +60,8 @@ async def score_segment(request: ScoreRequest, req: Request):
             expected_text=request.expected_text,
             actual_transcript=redacted_transcript,
             node_id=request.script_node_id,
-            client_id=request.client_id
+            client_id=request.client_id,
+            agent_id=request.agent_id,
         )
 
         # Check compliance (if this is a compliance node)

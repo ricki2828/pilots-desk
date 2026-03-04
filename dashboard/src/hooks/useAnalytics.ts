@@ -6,8 +6,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { format, subDays } from 'date-fns';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8006';
+import { apiFetch } from '../lib/api';
 
 export interface DailyMetric {
   date: string;
@@ -72,8 +71,8 @@ export function useAnalytics(
     try {
       // Fetch agent-specific daily metrics or all agents
       if (agentId) {
-        const response = await fetch(
-          `${API_URL}/api/analytics/agent/${agentId}/performance?days=${days}`
+        const response = await apiFetch(
+          `/api/analytics/agent/${agentId}/performance?days=${days}`
         );
         if (response.ok) {
           const data = await response.json();
@@ -82,8 +81,8 @@ export function useAnalytics(
       }
 
       // Fetch agent performance comparison (top performers)
-      const teamResponse = await fetch(
-        `${API_URL}/api/analytics/supervisor/team-summary?client_id=${clientId}&days=${days}`
+      const teamResponse = await apiFetch(
+        `/api/analytics/supervisor/team-summary?client_id=${clientId}&days=${days}`
       );
       if (teamResponse.ok) {
         const teamData = await teamResponse.json();
@@ -102,8 +101,8 @@ export function useAnalytics(
       }
 
       // Fetch script bottlenecks
-      const bottleneckResponse = await fetch(
-        `${API_URL}/api/analytics/script/bottlenecks?client_id=${clientId}&days=${days}&min_calls=10`
+      const bottleneckResponse = await apiFetch(
+        `/api/analytics/script/bottlenecks?client_id=${clientId}&days=${days}&min_calls=10`
       );
       if (bottleneckResponse.ok) {
         const bottleneckData = await bottleneckResponse.json();
@@ -114,8 +113,8 @@ export function useAnalytics(
       const trends: CallTrend[] = [];
       for (let i = days - 1; i >= 0; i--) {
         const date = format(subDays(new Date(), i), 'yyyy-MM-dd');
-        const summaryResponse = await fetch(
-          `${API_URL}/api/analytics/reports/daily-summary?client_id=${clientId}&target_date=${date}`
+        const summaryResponse = await apiFetch(
+          `/api/analytics/reports/daily-summary?client_id=${clientId}&target_date=${date}`
         );
 
         if (summaryResponse.ok) {

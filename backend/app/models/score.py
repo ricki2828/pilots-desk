@@ -39,10 +39,17 @@ class ComplianceCheck(BaseModel):
 
 class Nudge(BaseModel):
     """Coaching nudge for agent"""
-    nudge_type: Literal["adherence", "compliance", "pace", "energy", "keyword"]
+    nudge_type: Literal[
+        "adherence", "compliance", "pace", "energy", "keyword",
+        "talk_ratio", "keyword_miss", "positive", "pattern", "upsell", "close_timing"
+    ]
     severity: Literal["info", "warning", "critical"]
     message: str
     node_id: str
+    display_style: str = "toast"
+    color: str = "#3B82F6"
+    display_duration_seconds: int = 8
+    requires_acknowledgment: bool = False
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 

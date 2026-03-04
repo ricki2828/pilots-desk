@@ -1,0 +1,711 @@
+{
+  "version": "1.0.0",
+  "updated": "2026-03-04",
+  "description": "Comprehensive coaching nudge framework for Pilot's Desk real-time sales coaching",
+
+  "global_rules": {
+    "max_nudges_per_minute": 3,
+    "max_concurrent_nudges": 1,
+    "do_not_disturb_during_compliance": true,
+    "critical_nudge_cooldown_seconds": 120,
+    "priority_order": [
+      "compliance",
+      "adherence",
+      "pattern",
+      "close_timing",
+      "upsell",
+      "keyword_miss",
+      "talk_ratio",
+      "pace",
+      "energy",
+      "positive"
+    ],
+    "agent_profile_adjustments": {
+      "new_agent": {
+        "tenure_days_max": 14,
+        "nudge_frequency_multiplier": 1.5,
+        "severity_threshold_adjustment": -0.1,
+        "tone": "gentle",
+        "show_positive_reinforcement": true,
+        "max_nudges_per_minute": 2
+      },
+      "developing": {
+        "tenure_days_min": 15,
+        "tenure_days_max": 56,
+        "nudge_frequency_multiplier": 1.0,
+        "severity_threshold_adjustment": 0.0,
+        "tone": "balanced",
+        "show_positive_reinforcement": true,
+        "max_nudges_per_minute": 3
+      },
+      "experienced": {
+        "tenure_days_min": 57,
+        "nudge_frequency_multiplier": 0.7,
+        "severity_threshold_adjustment": 0.05,
+        "tone": "concise",
+        "show_positive_reinforcement": false,
+        "max_nudges_per_minute": 2
+      }
+    }
+  },
+
+  "nudge_categories": [
+    {
+      "id": "adherence",
+      "name": "Script Adherence",
+      "description": "Detects when agent deviates significantly from script expectations",
+      "enabled": true,
+      "positive": false,
+      "trigger_conditions": {
+        "adherence_score_threshold": 0.6,
+        "critical_threshold": 0.4,
+        "consecutive_low_scores": 2,
+        "key_points_missed_threshold": 3
+      },
+      "cooldown_seconds": 60,
+      "display_style": "banner",
+      "severity_levels": {
+        "info": {
+          "score_range": [0.6, 0.75],
+          "message_templates": [
+            "Cover the key benefits from your script",
+            "Remember to mention the main value points",
+            "Touch on script highlights before moving forward",
+            "Quick reminder: hit the core features",
+            "Circle back to your main talking points"
+          ],
+          "display_duration_seconds": 8,
+          "color": "#3B82F6"
+        },
+        "warning": {
+          "score_range": [0.4, 0.6],
+          "message_templates": [
+            "Missing key script points - refocus",
+            "Return to script structure for this section",
+            "You're drifting - stick to main points",
+            "Critical info missing - review your notes",
+            "Script deviation detected - realign"
+          ],
+          "display_duration_seconds": 12,
+          "color": "#F59E0B"
+        },
+        "critical": {
+          "score_range": [0.0, 0.4],
+          "message_templates": [
+            "MAJOR deviation - follow your script",
+            "Critical points missed - use script",
+            "Off-script alert - return to talking points",
+            "Script required for this section",
+            "You must cover the scripted points"
+          ],
+          "display_duration_seconds": 15,
+          "color": "#EF4444"
+        }
+      }
+    },
+
+    {
+      "id": "compliance",
+      "name": "Regulatory Compliance",
+      "description": "Detects violations of mandatory disclosures and legal requirements",
+      "enabled": true,
+      "positive": false,
+      "trigger_conditions": {
+        "verbatim_match_threshold": 0.85,
+        "required_phrase_missing": true,
+        "compliance_node_types": [
+          "recording_consent",
+          "parental_controls",
+          "price_disclosure",
+          "cancellation_policy",
+          "terms_and_conditions"
+        ]
+      },
+      "cooldown_seconds": 0,
+      "display_style": "pulse",
+      "severity_levels": {
+        "warning": {
+          "violation_types": ["minor_phrasing"],
+          "message_templates": [
+            "⚠️ Rephrase to match legal wording",
+            "⚠️ Use exact compliance language",
+            "⚠️ Close but needs exact phrasing"
+          ],
+          "display_duration_seconds": 10,
+          "color": "#F59E0B"
+        },
+        "critical": {
+          "violation_types": ["missing_disclosure", "incomplete_statement", "omitted_phrase"],
+          "message_templates": [
+            "🚨 COMPLIANCE: Recording consent required",
+            "🚨 COMPLIANCE: State parental controls",
+            "🚨 COMPLIANCE: Full price disclosure needed",
+            "🚨 COMPLIANCE: Mention cancellation policy",
+            "🚨 COMPLIANCE: Read terms verbatim"
+          ],
+          "display_duration_seconds": 20,
+          "color": "#DC2626",
+          "block_progression": true,
+          "requires_acknowledgment": true
+        }
+      }
+    },
+
+    {
+      "id": "pace",
+      "name": "Speaking Pace",
+      "description": "Monitors speaking speed for optimal NZ customer comprehension",
+      "enabled": true,
+      "positive": false,
+      "trigger_conditions": {
+        "words_per_minute_min": 120,
+        "words_per_minute_max": 180,
+        "optimal_wpm_range": [140, 165],
+        "measurement_window_seconds": 30
+      },
+      "cooldown_seconds": 90,
+      "display_style": "toast",
+      "severity_levels": {
+        "info": {
+          "wpm_ranges": [[110, 120], [180, 200]],
+          "message_templates": [
+            "Adjust your pace slightly",
+            "Speaking a bit fast - slow down",
+            "Speed up just a touch",
+            "Match the customer's pace",
+            "Take a breath between points"
+          ],
+          "display_duration_seconds": 6,
+          "color": "#3B82F6"
+        },
+        "warning": {
+          "wpm_ranges": [[90, 110], [200, 220]],
+          "message_templates": [
+            "Too slow - customer may lose interest",
+            "Too fast - NZ customers need time",
+            "Slow down for better comprehension",
+            "Pick up the pace a bit",
+            "Breathe and moderate your speed"
+          ],
+          "display_duration_seconds": 10,
+          "color": "#F59E0B"
+        }
+      }
+    },
+
+    {
+      "id": "energy",
+      "name": "Tone & Energy",
+      "description": "Detects low energy, monotone delivery, or lack of enthusiasm",
+      "enabled": true,
+      "positive": false,
+      "trigger_conditions": {
+        "energy_score_threshold": 0.5,
+        "pitch_variation_min": 0.3,
+        "measurement_window_seconds": 45
+      },
+      "cooldown_seconds": 120,
+      "display_style": "toast",
+      "severity_levels": {
+        "info": {
+          "energy_range": [0.5, 0.65],
+          "message_templates": [
+            "Bring more energy to your voice",
+            "Sound excited about this offer",
+            "Smile while you speak - they'll hear it",
+            "Vary your tone for emphasis",
+            "Show enthusiasm for the product"
+          ],
+          "display_duration_seconds": 8,
+          "color": "#3B82F6"
+        },
+        "warning": {
+          "energy_range": [0.0, 0.5],
+          "message_templates": [
+            "Low energy detected - perk up",
+            "You sound flat - add enthusiasm",
+            "Customer needs to feel your excitement",
+            "Inject life into your delivery",
+            "Wake up - this is a great offer"
+          ],
+          "display_duration_seconds": 10,
+          "color": "#F59E0B"
+        }
+      }
+    },
+
+    {
+      "id": "talk_ratio",
+      "name": "Talk-Listen Balance",
+      "description": "Warns when agent talks too much without letting customer respond",
+      "enabled": true,
+      "positive": false,
+      "trigger_conditions": {
+        "agent_talk_percentage_max": 70,
+        "customer_silence_seconds_max": 90,
+        "monologue_duration_max_seconds": 60,
+        "measurement_window_seconds": 120
+      },
+      "cooldown_seconds": 75,
+      "display_style": "banner",
+      "severity_levels": {
+        "info": {
+          "talk_ratio_range": [0.65, 0.70],
+          "message_templates": [
+            "Pause for customer input",
+            "Ask a question to engage them",
+            "Check if they're following along",
+            "Give them space to respond",
+            "Too much talking - invite questions"
+          ],
+          "display_duration_seconds": 8,
+          "color": "#3B82F6"
+        },
+        "warning": {
+          "talk_ratio_range": [0.70, 1.0],
+          "message_templates": [
+            "Stop talking - ask a question",
+            "You're in monologue mode - engage customer",
+            "Customer hasn't spoken in 90 seconds",
+            "Pause and listen for objections",
+            "Too one-sided - get their thoughts"
+          ],
+          "display_duration_seconds": 12,
+          "color": "#F59E0B"
+        }
+      }
+    },
+
+    {
+      "id": "keyword_miss",
+      "name": "Key Selling Points",
+      "description": "Flags when agent misses important product features or benefits",
+      "enabled": true,
+      "positive": false,
+      "trigger_conditions": {
+        "priority_keywords_threshold": 0.7,
+        "consecutive_misses": 2,
+        "node_specific_keywords": true
+      },
+      "cooldown_seconds": 45,
+      "display_style": "highlight",
+      "severity_levels": {
+        "info": {
+          "missed_keywords_count": [1, 2],
+          "message_templates": [
+            "Mention: {{keyword}}",
+            "Don't forget: {{keyword}}",
+            "Highlight: {{keyword}}",
+            "Key point: {{keyword}}",
+            "Cover: {{keyword}}"
+          ],
+          "display_duration_seconds": 10,
+          "color": "#3B82F6"
+        },
+        "warning": {
+          "missed_keywords_count": [3, 999],
+          "message_templates": [
+            "Multiple key points missed",
+            "Missing critical features: {{keywords}}",
+            "You skipped important benefits",
+            "Revisit: {{keywords}}",
+            "Customer needs to hear: {{keywords}}"
+          ],
+          "display_duration_seconds": 12,
+          "color": "#F59E0B"
+        }
+      }
+    },
+
+    {
+      "id": "positive",
+      "name": "Positive Reinforcement",
+      "description": "Celebrates when agent performs well on key metrics",
+      "enabled": true,
+      "positive": true,
+      "trigger_conditions": {
+        "adherence_score_threshold": 0.85,
+        "consecutive_good_scores": 3,
+        "perfect_compliance_node": true,
+        "successful_objection_handling": true,
+        "natural_upsell_attempt": true
+      },
+      "cooldown_seconds": 180,
+      "display_style": "toast",
+      "severity_levels": {
+        "info": {
+          "message_templates": [
+            "✓ Great adherence on that section",
+            "✓ Perfect compliance delivery",
+            "✓ Excellent product explanation",
+            "✓ Nice objection handling",
+            "✓ Strong close attempt",
+            "✓ You're on fire - keep it up",
+            "✓ Three great sections in a row",
+            "✓ Customer is engaged - well done",
+            "✓ Smooth upsell positioning",
+            "✓ Perfect pace and tone"
+          ],
+          "display_duration_seconds": 5,
+          "color": "#10B981"
+        }
+      }
+    },
+
+    {
+      "id": "pattern",
+      "name": "Repeated Mistakes",
+      "description": "Detects when agent makes the same error multiple times",
+      "enabled": true,
+      "positive": false,
+      "trigger_conditions": {
+        "same_error_count": 3,
+        "lookback_window_calls": 10,
+        "error_types": [
+          "same_keyword_missed",
+          "same_compliance_violation",
+          "consistent_low_adherence_node",
+          "repeated_pace_issue"
+        ]
+      },
+      "cooldown_seconds": 300,
+      "display_style": "banner",
+      "severity_levels": {
+        "warning": {
+          "pattern_count": [3, 4],
+          "message_templates": [
+            "Pattern alert: {{error_type}} - focus here",
+            "You've missed {{keyword}} 3 times today",
+            "Recurring issue with {{node_name}}",
+            "This keeps happening - review notes",
+            "Pattern detected - coaching needed"
+          ],
+          "display_duration_seconds": 12,
+          "color": "#F59E0B"
+        },
+        "critical": {
+          "pattern_count": [5, 999],
+          "message_templates": [
+            "🚨 Same mistake 5+ times - see supervisor",
+            "🚨 Pattern critical - immediate coaching required",
+            "🚨 Recurring compliance issue - escalate",
+            "🚨 You need help with {{error_type}}"
+          ],
+          "display_duration_seconds": 15,
+          "color": "#DC2626",
+          "notify_supervisor": true
+        }
+      }
+    },
+
+    {
+      "id": "upsell",
+      "name": "Upsell Opportunities",
+      "description": "Prompts agent when customer signals openness to premium offerings",
+      "enabled": true,
+      "positive": false,
+      "trigger_conditions": {
+        "customer_interest_signals": [
+          "sounds good",
+          "what else",
+          "premium",
+          "best package",
+          "everything",
+          "top tier"
+        ],
+        "current_package_tier": "basic",
+        "upsell_window_node_ids": ["package_presentation", "feature_discussion"]
+      },
+      "cooldown_seconds": 240,
+      "display_style": "highlight",
+      "severity_levels": {
+        "info": {
+          "message_templates": [
+            "💡 Upsell opportunity - mention premium",
+            "💡 Customer interested - show top tier",
+            "💡 They're engaged - position upgrade",
+            "💡 Present premium package now",
+            "💡 Time to upsell - they're interested"
+          ],
+          "display_duration_seconds": 10,
+          "color": "#8B5CF6"
+        }
+      }
+    },
+
+    {
+      "id": "close_timing",
+      "name": "Close Timing",
+      "description": "Nudges agent to attempt close when customer shows buying signals",
+      "enabled": true,
+      "positive": false,
+      "trigger_conditions": {
+        "buying_signals": [
+          "yes that works",
+          "sounds great",
+          "I'm interested",
+          "let's do it",
+          "when can you",
+          "how soon"
+        ],
+        "objections_resolved": true,
+        "minimum_nodes_covered": 5,
+        "time_in_call_min_seconds": 180
+      },
+      "cooldown_seconds": 120,
+      "display_style": "pulse",
+      "severity_levels": {
+        "info": {
+          "message_templates": [
+            "🎯 Buying signals - attempt close",
+            "🎯 Time to close - they're ready",
+            "🎯 Ask for the sale now",
+            "🎯 Move to close - strong interest",
+            "🎯 Close the deal - signals are there"
+          ],
+          "display_duration_seconds": 12,
+          "color": "#10B981"
+        },
+        "warning": {
+          "message_templates": [
+            "⚡ You missed close opportunity",
+            "⚡ Customer was ready - circle back",
+            "⚡ Don't let this slip - close now"
+          ],
+          "display_duration_seconds": 10,
+          "color": "#F59E0B"
+        }
+      }
+    }
+  ],
+
+  "coaching_insights": {
+    "post_call_summary": {
+      "enabled": true,
+      "metrics_to_calculate": [
+        {
+          "id": "overall_adherence_trend",
+          "name": "Adherence Trend",
+          "calculation": "compare_last_5_calls",
+          "display_format": "arrow_with_percentage",
+          "thresholds": {
+            "improving": 0.05,
+            "stable": 0.02,
+            "declining": -0.02
+          }
+        },
+        {
+          "id": "compliance_pass_rate",
+          "name": "Compliance Success Rate",
+          "calculation": "compliant_nodes / total_compliance_nodes",
+          "display_format": "percentage",
+          "target": 0.95
+        },
+        {
+          "id": "talk_ratio_average",
+          "name": "Talk-Listen Balance",
+          "calculation": "agent_talk_time / total_talk_time",
+          "display_format": "ratio",
+          "optimal_range": [0.55, 0.65]
+        },
+        {
+          "id": "pace_consistency",
+          "name": "Pace Control",
+          "calculation": "segments_in_optimal_wpm / total_segments",
+          "display_format": "percentage",
+          "target": 0.80
+        },
+        {
+          "id": "keyword_coverage",
+          "name": "Key Points Coverage",
+          "calculation": "keywords_mentioned / keywords_required",
+          "display_format": "percentage",
+          "target": 0.90
+        },
+        {
+          "id": "energy_score",
+          "name": "Energy Level",
+          "calculation": "average_energy_across_call",
+          "display_format": "score_out_of_10",
+          "target": 7.0
+        }
+      ],
+      "strengths_identification": {
+        "criteria": [
+          {
+            "strength": "Compliance Expert",
+            "condition": "compliance_pass_rate >= 0.95 AND compliance_violations_count == 0"
+          },
+          {
+            "strength": "Script Master",
+            "condition": "overall_adherence >= 0.85 AND adherence_variance < 0.1"
+          },
+          {
+            "strength": "Great Listener",
+            "condition": "talk_ratio >= 0.55 AND talk_ratio <= 0.65"
+          },
+          {
+            "strength": "Pace Pro",
+            "condition": "pace_consistency >= 0.80"
+          },
+          {
+            "strength": "High Energy",
+            "condition": "energy_score >= 7.5"
+          },
+          {
+            "strength": "Complete Coverage",
+            "condition": "keyword_coverage >= 0.90"
+          },
+          {
+            "strength": "Upsell Natural",
+            "condition": "upsell_attempts >= 1 AND upsell_success_rate >= 0.3"
+          },
+          {
+            "strength": "Strong Closer",
+            "condition": "close_attempts >= 2 AND disposition == 'sale'"
+          }
+        ],
+        "display_top_n": 3
+      },
+      "improvement_areas": {
+        "criteria": [
+          {
+            "area": "Compliance Accuracy",
+            "condition": "compliance_pass_rate < 0.95",
+            "suggestion": "Review legal disclosure scripts before shift"
+          },
+          {
+            "area": "Script Adherence",
+            "condition": "overall_adherence < 0.75",
+            "suggestion": "Practice low-scoring script sections with supervisor"
+          },
+          {
+            "area": "Talk-Listen Balance",
+            "condition": "talk_ratio > 0.70 OR talk_ratio < 0.50",
+            "suggestion": "Use more open-ended questions to balance conversation"
+          },
+          {
+            "area": "Speaking Pace",
+            "condition": "pace_consistency < 0.70",
+            "suggestion": "Record yourself and practice pacing with metronome"
+          },
+          {
+            "area": "Energy Levels",
+            "condition": "energy_score < 6.0",
+            "suggestion": "Stand up during calls, smile while speaking"
+          },
+          {
+            "area": "Key Points Coverage",
+            "condition": "keyword_coverage < 0.80",
+            "suggestion": "Create checklist of must-mention features"
+          },
+          {
+            "area": "Upselling",
+            "condition": "upsell_attempts == 0 AND call_duration > 300",
+            "suggestion": "Look for interest signals to position premium options"
+          },
+          {
+            "area": "Closing",
+            "condition": "close_attempts == 0 AND buying_signals_detected > 0",
+            "suggestion": "Practice assumptive close techniques"
+          }
+        ],
+        "display_top_n": 3
+      },
+      "node_specific_recommendations": {
+        "enabled": true,
+        "threshold": 0.65,
+        "format": "Node '{{node_name}}' needs work - your adherence: {{score}}, team avg: {{team_avg}}"
+      },
+      "team_comparison": {
+        "enabled": true,
+        "metrics": [
+          "overall_adherence",
+          "compliance_pass_rate",
+          "talk_ratio_average",
+          "keyword_coverage",
+          "energy_score"
+        ],
+        "display_format": "percentile_rank"
+      }
+    },
+    "session_stats": {
+      "enabled": true,
+      "display_during_call": false,
+      "metrics": [
+        {
+          "id": "current_call_adherence",
+          "name": "Call Score",
+          "update_frequency_seconds": 30
+        },
+        {
+          "id": "nudges_today",
+          "name": "Nudges Received Today",
+          "update_frequency_seconds": 60
+        },
+        {
+          "id": "streak_good_calls",
+          "name": "Good Calls Streak",
+          "threshold": 0.80,
+          "reset_on_poor_call": true
+        }
+      ]
+    }
+  },
+
+  "display_configuration": {
+    "toast": {
+      "position": "top-right",
+      "animation": "slide-in",
+      "dismissible": true,
+      "auto_dismiss_after_duration": true
+    },
+    "banner": {
+      "position": "top-center",
+      "animation": "fade-in",
+      "dismissible": false,
+      "full_width": true
+    },
+    "highlight": {
+      "position": "inline-script-panel",
+      "animation": "glow",
+      "dismissible": true,
+      "highlight_color": "border-accent"
+    },
+    "pulse": {
+      "position": "top-center",
+      "animation": "pulse-urgent",
+      "dismissible": false,
+      "sound_alert": true,
+      "requires_acknowledgment": true
+    }
+  },
+
+  "integration_notes": {
+    "backend_implementation": [
+      "Load this config at service startup",
+      "Cache in memory for fast lookups",
+      "Validate nudge triggers against current agent profile",
+      "Apply cooldown tracking per agent per nudge type",
+      "Check priority order when multiple nudges fire simultaneously",
+      "Track pattern history in separate DB table",
+      "Calculate post-call metrics asynchronously",
+      "Store team averages for comparison in aggregated stats table"
+    ],
+    "frontend_implementation": [
+      "Display nudges according to display_style specification",
+      "Respect display_duration_seconds for auto-dismiss",
+      "Apply agent profile adjustments to UI tone",
+      "Show coaching insights in post-call summary modal",
+      "Highlight nodes in script panel when keyword_miss fires",
+      "Pulse effect for critical compliance nudges",
+      "Track nudge dismissal interactions for analytics"
+    ],
+    "database_schema_additions": [
+      "nudge_history: agent_id, call_id, nudge_type, severity, timestamp, acknowledged",
+      "pattern_tracking: agent_id, error_type, error_context, occurrence_count, first_seen, last_seen",
+      "agent_profiles: agent_id, tenure_start_date, profile_tier (new/developing/experienced)",
+      "team_benchmarks: metric_id, period (daily/weekly), average_value, percentile_25, percentile_75"
+    ]
+  }
+}
