@@ -43,6 +43,12 @@
           "confidence_threshold": 0.7
         },
         {
+          "trigger_type": "KEYWORD",
+          "value": ["had sky", "cancelled sky", "had it before"],
+          "next_node": "objection_had_sky_before_01",
+          "confidence_threshold": 0.7
+        },
+        {
           "trigger_type": "INTENT",
           "value": "Positive",
           "next_node": "compliance_recording_01",
@@ -142,6 +148,18 @@
           "confidence_threshold": 0.7
         },
         {
+          "trigger_type": "KEYWORD",
+          "value": ["contract", "locked in", "in a contract", "committed"],
+          "next_node": "objection_in_contract_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["had sky", "cancelled", "had it before", "used to have"],
+          "next_node": "objection_had_sky_before_01",
+          "confidence_threshold": 0.7
+        },
+        {
           "trigger_type": "INTENT",
           "value": "Positive",
           "next_node": "sport_pitch_generic",
@@ -165,7 +183,7 @@
       "transitions": [
         {
           "trigger_type": "KEYWORD",
-          "value": ["sounds good", "interested", "yes", "tell me more"],
+          "value": ["sounds good", "interested", "yes", "sure", "tell me more"],
           "next_node": "bundle_upsell_sport",
           "confidence_threshold": 0.6
         },
@@ -198,15 +216,21 @@
       },
       "transitions": [
         {
-          "trigger_type": "INTENT",
-          "value": "Positive",
+          "trigger_type": "KEYWORD",
+          "value": ["sounds good", "interested", "yes", "sure", "tell me more"],
           "next_node": "bundle_upsell_sport",
           "confidence_threshold": 0.6
         },
         {
           "trigger_type": "KEYWORD",
-          "value": ["expensive", "cost", "price"],
+          "value": ["expensive", "cost", "price", "how much"],
           "next_node": "price_reveal_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["think about it", "not sure", "maybe later"],
+          "next_node": "objection_timing_01",
           "confidence_threshold": 0.7
         }
       ]
@@ -226,15 +250,21 @@
       },
       "transitions": [
         {
-          "trigger_type": "INTENT",
-          "value": "Positive",
+          "trigger_type": "KEYWORD",
+          "value": ["sounds good", "interested", "yes", "sure", "tell me more"],
           "next_node": "bundle_upsell_sport",
           "confidence_threshold": 0.6
         },
         {
           "trigger_type": "KEYWORD",
-          "value": ["expensive", "cost", "price"],
+          "value": ["expensive", "cost", "price", "how much"],
           "next_node": "price_reveal_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["think about it", "not sure", "maybe later"],
+          "next_node": "objection_timing_01",
           "confidence_threshold": 0.7
         }
       ]
@@ -254,15 +284,21 @@
       },
       "transitions": [
         {
-          "trigger_type": "INTENT",
-          "value": "Positive",
+          "trigger_type": "KEYWORD",
+          "value": ["sounds good", "interested", "yes", "sure", "tell me more"],
           "next_node": "bundle_upsell_sport",
           "confidence_threshold": 0.6
         },
         {
           "trigger_type": "KEYWORD",
-          "value": ["expensive", "cost", "price"],
+          "value": ["expensive", "cost", "price", "how much"],
           "next_node": "price_reveal_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["think about it", "not sure", "maybe later"],
+          "next_node": "objection_timing_01",
           "confidence_threshold": 0.7
         }
       ]
@@ -367,6 +403,12 @@
         },
         {
           "trigger_type": "KEYWORD",
+          "value": ["expensive", "price", "cost", "how much"],
+          "next_node": "price_reveal_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
           "value": ["not interested", "no thanks"],
           "next_node": "objection_not_interested_02",
           "confidence_threshold": 0.7
@@ -399,6 +441,18 @@
           "trigger_type": "KEYWORD",
           "value": ["partner", "wife", "husband", "spouse"],
           "next_node": "objection_partner_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["contract", "locked in", "in a contract"],
+          "next_node": "objection_in_contract_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["had sky", "cancelled", "had it before"],
+          "next_node": "objection_had_sky_before_01",
           "confidence_threshold": 0.7
         },
         {
@@ -544,6 +598,12 @@
           "value": ["think about it", "maybe later"],
           "next_node": "objection_timing_01",
           "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["no", "not interested", "no thanks"],
+          "next_node": "polite_close_01",
+          "confidence_threshold": 0.8
         }
       ]
     },
@@ -608,7 +668,7 @@
         {
           "trigger_type": "KEYWORD",
           "value": ["okay", "fine", "go ahead", "quick"],
-          "next_node": "needs_discovery_intro",
+          "next_node": "compliance_recording_01",
           "confidence_threshold": 0.6
         },
         {
@@ -637,7 +697,13 @@
         },
         {
           "trigger_type": "KEYWORD",
-          "value": ["no", "not interested", "happy with what I have"],
+          "value": ["think about it", "maybe", "not sure"],
+          "next_node": "callback_schedule_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["no", "not interested", "no thanks", "happy with what I have"],
           "next_node": "polite_close_01",
           "confidence_threshold": 0.7
         }
@@ -716,12 +782,18 @@
         {
           "trigger_type": "KEYWORD",
           "value": ["didn't watch", "wasn't using", "waste"],
-          "next_node": "needs_discovery_intro",
+          "next_node": "compliance_recording_01",
           "confidence_threshold": 0.7
         },
         {
           "trigger_type": "KEYWORD",
-          "value": ["not interested", "don't want it again"],
+          "value": ["think about it", "maybe", "call back"],
+          "next_node": "callback_schedule_01",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["not interested", "no thanks", "don't want it again"],
           "next_node": "polite_close_01",
           "confidence_threshold": 0.8
         }
@@ -771,6 +843,12 @@
           "trigger_type": "KEYWORD",
           "value": ["yes", "sure", "sounds good", "okay"],
           "next_node": "polite_close_callback",
+          "confidence_threshold": 0.7
+        },
+        {
+          "trigger_type": "KEYWORD",
+          "value": ["no", "actually", "changed my mind", "not interested", "don't call"],
+          "next_node": "polite_close_01",
           "confidence_threshold": 0.7
         }
       ]
