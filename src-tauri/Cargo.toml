@@ -1,6 +1,6 @@
 [package]
 name = "pilots-desk"
-version = "0.1.0"
+version = "0.8.0"
 description = "Voice-responsive sales assistance platform for BPOs"
 authors = ["CoSauce"]
 edition = "2021"

@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import PackageCalculator from "./PackageCalculator";
+import ChoiceStrip, { type ChoiceItem } from "./ChoiceStrip";
+import { useChoiceNavigation } from "../hooks/useChoiceNavigation";
 
 interface ScriptNode {
   id: string;
@@ -48,6 +50,33 @@ interface WidgetConfig {
   };
 }
 
+function deriveLabel(transition: ScriptNode["transitions"][0]): string {
+  switch (transition.trigger_type) {
+    case "KEYWORD": {
+      const val = transition.value;
+      if (Array.isArray(val)) {
+        return val.slice(0, 2).join(" / ");
+      }
+      return val ? String(val) : "Continue";
+    }
+    case "INTENT":
+      return typeof transition.value === "string" ? transition.value : "Intent";
+    case "AUTO":
+      return "Continue \u2192";
+    default:
+      return typeof transition.value === "string"
+        ? transition.value
+        : Array.isArray(transition.value)
+        ? transition.value.slice(0, 2).join(" / ")
+        : "Continue";
+  }
+}
+
+function getKeywords(transition: ScriptNode["transitions"][0]): string[] {
+  if (!transition.value) return [];
+  return Array.isArray(transition.value) ? transition.value : [transition.value];
+}
+
 export default function ScriptViewer() {
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [currentNode, setCurrentNode] = useState<ScriptNode | null>(null);
@@ -56,6 +85,7 @@ export default function ScriptViewer() {
   const [error, setError] = useState<string | null>(null);
   const [widgetConfig, setWidgetConfig] = useState<WidgetConfig | null>(null);
   const [previousTranscript, setPreviousTranscript] = useState<string>("");
+  const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load script on mount
   useEffect(() => {
@@ -140,8 +170,6 @@ export default function ScriptViewer() {
           for (const keyword of currentNode.config.auto_trigger.listen_for) {
             if (transcript_lower.includes(keyword.toLowerCase())) {
               console.log("Auto-trigger detected:", keyword);
-              // Trigger action based on auto_trigger.action
-              // For now, enable the package (hardcoded to "sport" for rugby example)
               if (currentNode.config.auto_trigger.action === "enable_sport_package") {
                 (window as any).enablePackage?.("sport");
               }
@@ -158,25 +186,69 @@ export default function ScriptViewer() {
     };
   }, [scriptLoaded, currentNode, widgetConfig, previousTranscript]);
 
-  // Keyboard navigation
+  // Manual navigation to specific node
+  const navigateToNode = useCallback(async (nodeId: string) => {
+    try {
+      await invoke("navigate_to_node", { nodeId });
+      const current = await invoke<ScriptNode | null>("get_current_node");
+      setCurrentNode(current);
+    } catch (err) {
+      console.error("Navigation failed:", err);
+    }
+  }, []);
+
+  // Derive choice items from transitions
+  const { choices, allAuto } = useMemo(() => {
+    if (!currentNode || currentNode.transitions.length === 0) {
+      return { choices: [] as ChoiceItem[], allAuto: false };
+    }
+
+    const allAutoTransitions = currentNode.transitions.every(
+      (t) => t.trigger_type === "AUTO"
+    );
+
+    // Filter out AUTO transitions from mixed sets
+    const visibleTransitions = allAutoTransitions
+      ? currentNode.transitions
+      : currentNode.transitions.filter((t) => t.trigger_type !== "AUTO");
+
+    const items: ChoiceItem[] = visibleTransitions.map((t, idx) => ({
+      index: idx,
+      label: deriveLabel(t),
+      targetNodeId: t.next_node,
+      targetNode: allNodes.find((n) => n.id === t.next_node),
+      triggerType: t.trigger_type,
+      keywords: getKeywords(t),
+    }));
+
+    return { choices: items, allAuto: allAutoTransitions };
+  }, [currentNode, allNodes]);
+
+  // Handle choice selection
+  const handleChoiceSelect = useCallback(
+    (index: number) => {
+      if (index >= 0 && index < choices.length) {
+        navigateToNode(choices[index].targetNodeId);
+      }
+    },
+    [choices, navigateToNode]
+  );
+
+  // Choice navigation hook
+  const { focusedIndex, setFocusedIndex, showPreview } =
+    useChoiceNavigation({
+      choiceCount: choices.length,
+      currentNodeId: currentNode?.id,
+      onSelect: handleChoiceSelect,
+      enabled: scriptLoaded && !!currentNode && !allAuto,
+    });
+
+  // ArrowUp for back navigation (separate from choice nav)
   useEffect(() => {
     const handleKeyPress = async (e: KeyboardEvent) => {
       if (!currentNode || !scriptLoaded) return;
 
-      // Arrow keys for navigation through transitions
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        if (currentNode.transitions.length > 0) {
-          try {
-            const nextNodeId = currentNode.transitions[0].next_node;
-            await invoke("navigate_to_node", { nodeId: nextNodeId });
-            const current = await invoke<ScriptNode | null>("get_current_node");
-            setCurrentNode(current);
-          } catch (err) {
-            console.error("Navigation failed:", err);
-          }
-        }
-      } else if (e.key === "ArrowUp") {
+      if (e.key === "ArrowUp") {
         e.preventDefault();
         try {
           await invoke("navigate_back");
@@ -192,16 +264,25 @@ export default function ScriptViewer() {
     return () => window.removeEventListener("keydown", handleKeyPress);
   }, [currentNode, scriptLoaded]);
 
-  // Manual navigation to specific node
-  const navigateToNode = async (nodeId: string) => {
-    try {
-      await invoke("navigate_to_node", { nodeId });
-      const current = await invoke<ScriptNode | null>("get_current_node");
-      setCurrentNode(current);
-    } catch (err) {
-      console.error("Navigation failed:", err);
+  // AUTO-advance: if all transitions are AUTO, advance after 500ms
+  useEffect(() => {
+    if (autoAdvanceTimer.current) {
+      clearTimeout(autoAdvanceTimer.current);
+      autoAdvanceTimer.current = null;
     }
-  };
+
+    if (allAuto && currentNode && currentNode.transitions.length > 0) {
+      autoAdvanceTimer.current = setTimeout(() => {
+        navigateToNode(currentNode.transitions[0].next_node);
+      }, 500);
+    }
+
+    return () => {
+      if (autoAdvanceTimer.current) {
+        clearTimeout(autoAdvanceTimer.current);
+      }
+    };
+  }, [allAuto, currentNode, navigateToNode]);
 
   // Reset script to beginning
   const resetScript = async () => {
@@ -212,14 +293,6 @@ export default function ScriptViewer() {
     } catch (err) {
       console.error("Reset failed:", err);
     }
-  };
-
-  // Get next possible nodes
-  const getNextNodes = (): ScriptNode[] => {
-    if (!currentNode) return [];
-    return currentNode.transitions
-      .map((t) => allNodes.find((n) => n.id === t.next_node))
-      .filter((n): n is ScriptNode => n !== undefined);
   };
 
   // Get node type badge color (CoSauce style)
@@ -262,8 +335,6 @@ export default function ScriptViewer() {
       </div>
     );
   }
-
-  const nextNodes = getNextNodes();
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -340,55 +411,40 @@ export default function ScriptViewer() {
           )}
         </div>
 
-        {/* Next Steps — compact inline buttons */}
-        {nextNodes.length > 0 && (
-          <div className="mt-4 border-t border-border/50 pt-3">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-heading font-bold text-mutedForeground uppercase tracking-wide">
-                Next ({nextNodes.length})
-              </span>
-              <span className="text-xs text-mutedForeground">&#8595; arrow or click</span>
-            </div>
-            <div className="space-y-1.5">
-              {nextNodes.map((node, idx) => (
-                <button
-                  key={node.id}
-                  onClick={() => navigateToNode(node.id)}
-                  className="w-full text-left flex items-center gap-2 bg-muted/50 hover:bg-card border border-border hover:border-foreground rounded-sm px-3 py-2 opacity-50 hover:opacity-100 transition-all"
-                >
-                  <span className={`px-2 py-0.5 border rounded-sm text-[10px] font-heading font-bold shrink-0 ${getNodeTypeColor(node.type)}`}>
-                    {node.type}
-                  </span>
-                  <span className="text-xs text-foreground font-body truncate">
-                    {node.config.text ? node.config.text.substring(0, 80) : node.id}
-                  </span>
-                  {currentNode.transitions[idx]?.value && (
-                    <span className="ml-auto text-[10px] text-mutedForeground font-mono shrink-0">
-                      {Array.isArray(currentNode.transitions[idx].value)
-                        ? (currentNode.transitions[idx].value as string[]).slice(0, 3).join(", ")
-                        : currentNode.transitions[idx].value}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
+        {/* Choice Strip — replaces old Next Steps */}
+        {!allAuto && choices.length > 0 && (
+          <ChoiceStrip
+            choices={choices}
+            focusedIndex={focusedIndex}
+            showPreview={showPreview}
+            onFocus={setFocusedIndex}
+            onSelect={handleChoiceSelect}
+            getNodeTypeColor={getNodeTypeColor}
+          />
         )}
       </div>
 
       {/* Keyboard Hints */}
       <div className="bg-muted border-t border-foreground/30 px-4 py-1.5">
         <div className="flex items-center justify-between text-xs text-mutedForeground">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <span className="font-body">
-              <kbd className="px-1.5 py-0.5 bg-card border border-foreground/50 rounded-sm font-heading font-bold text-foreground">↓</kbd> Next
+              <kbd className="px-1.5 py-0.5 bg-card border border-foreground/50 rounded-sm font-heading font-bold text-foreground">1</kbd>-<kbd className="px-1.5 py-0.5 bg-card border border-foreground/50 rounded-sm font-heading font-bold text-foreground">8</kbd> Jump
+            </span>
+            <span className="font-body">
+              <kbd className="px-1.5 py-0.5 bg-card border border-foreground/50 rounded-sm font-heading font-bold text-foreground">↓</kbd> Cycle
+            </span>
+            <span className="font-body">
+              <kbd className="px-1.5 py-0.5 bg-card border border-foreground/50 rounded-sm font-heading font-bold text-foreground">⏎</kbd> Go
+            </span>
+            <span className="font-body">
+              <kbd className="px-1.5 py-0.5 bg-card border border-foreground/50 rounded-sm font-heading font-bold text-foreground">␣</kbd> Preview
             </span>
             <span className="font-body">
               <kbd className="px-1.5 py-0.5 bg-card border border-foreground/50 rounded-sm font-heading font-bold text-foreground">↑</kbd> Back
             </span>
-            <span className="font-body">Click to jump</span>
           </div>
-          <span className="font-mono text-[10px]">v2</span>
+          <span className="font-mono text-[10px]">v3</span>
         </div>
       </div>
 

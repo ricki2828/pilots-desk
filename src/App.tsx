@@ -6,7 +6,7 @@ import ScriptViewer from "./components/ScriptViewer";
 import AudioSettings from "./components/AudioSettings";
 import PermissionsHelper from "./components/PermissionsHelper";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://91.98.79.241:8010";
+const API_URL = import.meta.env.VITE_API_URL || "http://100.103.46.84:8010";
 const API_KEY = "pilots-desk-api-key-2026";
 
 interface AudioLevels {
